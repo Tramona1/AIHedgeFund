@@ -1,0 +1,135 @@
+---
+description: Project Phases and Deliverables for Personalized Stock Update Service
+---
+# Project Phases and Deliverables
+
+This document outlines the planned phases of development for the Personalized Stock Update Service, along with the key deliverables for each phase. This helps to define scope, prioritize tasks, and manage expectations throughout the project lifecycle.
+
+## Phase 1: MVP - Landing Page and Weekly Personalized Email Updates
+
+**Timeline (Estimated):** [Insert estimated timeline, e.g., 4-6 weeks]
+
+**Goals:**
+- Launch a functional landing page to attract initial users and gather email sign-ups.
+- Implement basic scraping and AI analysis to generate weekly stock updates.
+- Deliver weekly personalized email summaries to users based on their initial interests (collected via sign-up form - basic).
+- Validate core value proposition with early users.
+
+**Deliverables:**
+- **Frontend (Web):**
+    - Functional landing page (Next.js, Shadcn/ui, Tailwind CSS) deployed on Vercel/Netlify.
+    - Sign-up form for email collection (basic HTML form or Supabase Auth integration).
+    - Static display of sample personalized stock updates on the landing page.
+    - Basic privacy policy and terms of service on the landing page.
+- **Backend (API - Hono):**
+    - Basic API structure set up (Hono, Drizzle, Supabase).
+    - API endpoint for AI trigger reception (`/ai-triggers`).
+    - Notifications service integrated with SendGrid for email delivery.
+    - Basic user preferences data model in Supabase (initial structure, may be simplified for Phase 1).
+- **AI System (Python):**
+    - Scraping scripts for SEC EDGAR (13F filings) and X (top investor actions).
+    - Basic AI analysis to identify hedge fund activity and investor actions.
+    - Weekly trigger generation and sending to the Backend API.
+    - Logging and basic error handling in AI scripts.
+- **Infrastructure:**
+    - Supabase project set up and configured.
+    - SendGrid account set up and API key configured.
+    - Basic development and testing environment configured for all components.
+- **Documentation:**
+    - Project Phases and Deliverables document (this document).
+    - Updated Coding Rules documents (Backend API, Python AI, Frontend Web).
+    - Project Overview and Non-Technical Guide.
+    - Basic API documentation (for internal AI system integration).
+
+**Out of Scope for Phase 1:**
+- Real-time alerts and event-driven notifications.
+- Option flow and dark pool buy analysis.
+- User preference management UI (beyond basic sign-up).
+- Custom trigger configuration.
+- Internal dashboard.
+- Advanced scalability and performance optimizations.
+- Robust user authentication and authorization.
+- Full legal/compliance review (basic privacy policy and terms of service included, but not in-depth legal counsel).
+
+## Phase 2: Real-time Alerts, Option Flows, and User Preferences
+
+**Timeline (Estimated):** [Insert estimated timeline, e.g., 6-8 weeks]
+
+**Goals:**
+- Implement real-time event-driven alerts in addition to weekly summaries.
+- Incorporate option flow and dark pool buy data into analysis and updates.
+- Develop user preference management features, allowing users to customize their updates.
+- Enhance API security with API key authentication for AI system communication.
+- Improve UI/UX based on initial user feedback from Phase 1.
+
+**Deliverables:**
+- **Frontend (Web):**
+    - User preference input forms integrated into the landing page (or a basic user settings page).
+    - (Potentially) Basic UI elements to indicate real-time alerts.
+- **Backend (API - Hono):**
+    - Implementation of real-time alert processing and delivery logic.
+    - Integration with option flow and dark pool data sources and analysis.
+    - API endpoints for user preference management (create, read, update).
+    - API key authentication for AI system communication.
+- **AI System (Python):**
+    - Scraping and analysis for option flow and dark pool data.
+    - Real-time trigger generation and sending to the Backend API for event-driven alerts.
+    - Refinement of AI analysis based on initial performance and user feedback.
+- **Infrastructure:**
+    - Scalability testing and basic optimizations for real-time alerts.
+    - Monitoring and logging infrastructure set up (basic centralized logging).
+- **Documentation:**
+    - Updated Coding Rules documents (if needed based on Phase 2 development).
+    - API documentation for user preference management endpoints.
+    - Basic user guide for preference customization.
+
+**Out of Scope for Phase 2:**
+- Custom trigger configuration.
+- Internal dashboard.
+- Full scalability and performance optimizations for high-traffic scenarios.
+- Advanced user authentication and authorization (beyond API keys for AI).
+- Comprehensive legal/compliance review.
+
+## Phase 3: Custom Triggers, Dark Pool Buys, Internal Dashboard, and Scalability
+
+**Timeline (Estimated):** [Insert estimated timeline, e.g., 8-12 weeks]
+
+**Goals:**
+- Implement full user customization, including custom triggers and detailed preferences.
+- Fully integrate dark pool buy analysis.
+- Develop an internal dashboard for monitoring, managing updates, and user activity.
+- Achieve full scalability and performance for a larger user base and higher data volumes.
+- Implement robust security measures and address legal/compliance requirements.
+
+**Deliverables:**
+- **Frontend (Web):**
+    - Internal dashboard UI (React, Shadcn/ui, Tailwind CSS) for admin users.
+    - User interface for configuring custom triggers and detailed preferences.
+    - Enhanced UI/UX based on user feedback from Phase 2.
+- **Backend (API - Hono):**
+    - API endpoints to support the internal dashboard (data retrieval, management).
+    - Logic for handling custom triggers and complex user preferences.
+    - Scalability and performance optimizations for API and database.
+    - Robust user authentication and authorization for dashboard access.
+- **AI System (Python):**
+    - Enhanced AI analysis for dark pool buys and complex trigger conditions.
+    - Scalability optimizations for scraping and AI processing for higher data volumes.
+    - Comprehensive testing and validation of AI trigger accuracy.
+- **Infrastructure:**
+    - Full scalability infrastructure set up (horizontal scaling, load balancing, database optimizations).
+    - Centralized logging and monitoring system fully implemented.
+    - Security hardening and penetration testing.
+- **Documentation:**
+    - Updated Coding Rules documents (if needed based on Phase 3 development).
+    - API documentation for dashboard endpoints and full user preference management.
+    - User guide for custom triggers and advanced features.
+    - Legal/compliance documentation reviewed and updated.
+    - Deployment and operations documentation.
+
+**Out of Scope for Phase 3 (and beyond - potential future phases):**
+- Monetization strategy and payment processing.
+- Advanced AI features (e.g., predictive modeling, personalized portfolio recommendations - potentially future Phase 4).
+- Mobile app development (potential future phase).
+- 24/7 support and SLAs (Service Level Agreements - potentially future phase depending on business model).
+
+---

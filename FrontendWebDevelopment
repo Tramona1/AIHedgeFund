@@ -1,0 +1,256 @@
+---
+description: Frontend (Web) Development Rules for Stock Update Service using React, Next.js, Shadcn/ui, and Tailwind CSS
+globs: web/src/**/*.{ts,tsx,js,jsx}
+alwaysApply: true
+---
+# Frontend Web Development Guidelines for Stock Update Service
+
+These guidelines are tailored for building the user interface of the Personalized Stock Update Service using React, Next.js, Shadcn/ui, and Tailwind CSS. They are based on the "Useful for building react full stack applications" guidelines you provided, focusing on the specific needs of this project and incorporating architectural, pre-development, and enhanced feature considerations.
+
+<project_context>
+### Project Overview
+- **Frontend Focus**:  Initially, the frontend will primarily consist of a landing page to:
+    - Explain the service's value proposition.
+    - Collect user sign-ups (basic form - potentially integrated with Supabase Auth directly for Phase 1).
+    - Showcase sample personalized stock updates.
+    - Drive user engagement and sign-ups.
+- **Phase 1 Focus**: Develop a compelling and functional landing page. User preference input and personalized update display will be simplified in Phase 1.  Internal dashboard development is Phase 2/3.
+- **Scalability (Initial)**: Optimize landing page for fast initial load and responsiveness. Scalability for user-facing features will be a focus in later phases.
+- **User Experience**:  Prioritize a clean, intuitive, and engaging user experience on the landing page.
+- **Legal & Compliance**: Ensure the landing page includes a basic privacy policy and terms of service.
+
+</project_context>
+
+<project_phases>
+### Project Phases and Deliverables (Frontend Web Specific)
+- **Phase 1 Deliverables (Frontend Web):**
+    - Fully functional landing page (Next.js, Shadcn/ui, Tailwind CSS) deployed on Vercel/Netlify.
+    - Sign-up form for email collection (basic HTML form in `page.tsx` submitting to Supabase Auth or a mock function initially).
+    - Static display of sample personalized stock updates on the landing page (content examples provided below).
+    - Basic privacy policy and terms of service integrated into the landing page (content and placement).
+- **Phase 2 Deliverables (Frontend Web):**
+    - User preference input forms integrated into the landing page (or a basic user settings page). Use React Hook Form for form management.
+    - (Potentially) Basic UI elements to indicate real-time alerts (design and placement).
+- **Phase 3 Deliverables (Frontend Web):**
+    - Internal dashboard UI (React, Shadcn/ui, Tailwind CSS) for admin users (routes, components, data display).
+    - User interface for configuring custom triggers and detailed preferences (complex forms, state management).
+    - Enhanced UI/UX based on user feedback from Phase 1 & 2 (iterative improvements).
+</project_phases>
+
+<core_architecture>
+- **Frontend (Next.js)**:  Serves as the user interface, initially for the landing page and later for the internal dashboard.
+- **Backend API (Hono)**: (For future phases) Provides data and API endpoints for user preferences and stock updates.  Landing page interaction with the API will be minimal in Phase 1.
+- **Database (Supabase)**: (For future phases) Stores user preferences and update data. Landing page sign-ups might initially interact with Supabase Auth directly or a mock function.
+- **Email Service (SendGrid)**: (Backend API responsibility) Handles sending email updates, not directly interacted with by the frontend.
+- **AI System (Python)**:  (Backend API responsibility) Generates triggers and insights, not directly interacted with by the frontend.
+
+</core_architecture>
+
+<tech_stack>
+- **Framework**: React (Next.js 15 App Router)
+- **UI Library**: Shadcn/ui
+- **Styling**: Tailwind CSS (v4 semantic classes)
+- **State Management (Client)**: `useState`, `useContext` (for simple UI state).  No complex client-side state management initially.
+- **Server State Management**: TanStack Query (for future API data fetching - not heavily used in Phase 1 landing page).
+- **Form Handling**: React Hook Form (for future forms - basic HTML forms may suffice for landing page sign-up in Phase 1).
+- **Routing**: Next.js App Router built-in routing.
+- **Package Manager**: pnpm
+- **Runtime**: Bun
+- **Deployment**: Vercel or Netlify (recommended for Next.js)
+
+</tech_stack>
+
+<development_environment>
+- **Local Setup**: Ensure Node.js, Bun, and pnpm are installed.
+- **IDE**: VS Code (recommended) or your preferred IDE configured for TypeScript and React development with ESLint, Prettier, and Tailwind CSS IntelliSense extensions.
+- **Browser Testing**: Chrome, Firefox, Safari, Edge - for cross-browser compatibility testing of the landing page. Device emulators/simulators for mobile responsiveness testing (Chrome DevTools, BrowserStack, etc.).
+- **Version Control**: Git. Use feature branches for development and merge into `main`.
+</development_environment>
+
+
+<code_style_and_structure>
+- Follow the general "Code Style and Structure" guidelines from the "Useful for building react full stack applications" document.
+- **Component Colocation**: Adhere to the component colocation strategy described in the general guidelines. For the landing page, feature-specific components can be placed in `web/src/app/page/_components`. Shared UI components (Shadcn/ui) go in `web/src/components/ui`, and shared layout components in `web/src/components/layout`.
+- **Folder Structure**: Use Next.js App Router conventions. The landing page will be in `web/src/app/page.tsx`. Create folders for components, API interactions (minimal in Phase 1), and potentially utilities within `web/src`.
+- **Server Components First**: Default to Server Components for pages and components unless client-side interactivity or React Hooks are explicitly needed.  Landing page should be primarily Server Components for performance.
+- **Client Components When Necessary**: Use Client Components ("use client" directive) for interactive elements like forms, buttons, and components using React Hooks (e.g., `useState`, `useEffect`). Justify the use of Client Components and consider alternatives if possible.  For Phase 1 landing page, minimize Client Components.
+
+</code_style_and_structure>
+
+<ui_and_styling>
+- **Shadcn/ui and Tailwind CSS**: Use Shadcn/ui components and Tailwind CSS for styling. Leverage the default Shadcn/ui color theme. Customize Tailwind configuration as needed for project-specific styling. Use Tailwind v4 semantic classes (e.g., `size-4` instead of `h-4 w-4`).
+- **Responsive Design**: Implement responsive design using Tailwind CSS's mobile-first approach and responsive modifiers (sm:, md:, lg:, xl:, 2xl:). Test responsiveness across different screen sizes and devices thoroughly. Use browser developer tools for responsive design testing.
+- **Landing Page Design**: Design a modern and engaging landing page as per the PRD description. Focus on:
+    - **Value Proposition**: "Personalized Insights to Beat the Market" - prominently display this.
+    - **Layout**: Engaging, clean layout using Shadcn/ui and Tailwind CSS.  Use a clear visual hierarchy.
+    - **Sign-up Form**: Simple and prominent sign-up form for email collection.  Place it above the fold and in a visually appealing section.
+    - **Sample Updates/Previews**: Showcase the service's value with compelling sample updates. Use formatting (bolding, bullet points) for scannability.
+    - **Call-to-Action**: Strong and clear call-to-action buttons: "Get Started—Catch the Next Big Move", "Sign Up Now", etc. Use visually distinct buttons.
+    - **Hooks/Messaging**: Integrate PRD hooks into landing page copy to resonate with the target audience:
+        - "Never get left behind."
+        - "Never not know what's happening."
+        - "Don't let hedge funds have the upper hand, know everything about what you own."
+        - "Everything a trader needs to be successful."
+    - **Sample Update Content Examples (for static display on landing page):**
+        - "Jamie Dimon has sold 33% of his JPM shares." (Insider selling example)
+        - "Potential Trade Idea: XYZ Funds just bought [Stock Ticker], and there have been X% of insider buys recently." (Hedge fund/insider buying example)
+- **Accessibility**: Consider basic accessibility principles for the landing page to ensure usability for a wider audience. (Full accessibility compliance can be a Phase 2 consideration). Ensure semantic HTML and ARIA attributes are used where appropriate. Use accessible colors and font sizes. Test with accessibility tools (e.g., browser extensions, online checkers).
+- **Visuals**: Use minimal visuals (mini-charts, icons) on the landing page and in sample updates for quick comprehension, as described in the PRD. Optimize images for web performance if used using `next/image` component. Use WebP format for images.
+
+</ui_and_styling>
+
+<data_fetching>
+- **No Data Fetching on Landing Page (Phase 1)**: The landing page in the initial phase is primarily static content with a sign-up form. Data fetching is not required on the landing page itself in Phase 1. Sample updates will be static content.
+- **Form Handling (Phase 1 Sign-up Form)**: Use a simple HTML form in `page.tsx` for the initial email sign-up. Example `page.tsx` (Server Component):
+    ```tsx
+    import { Button } from "@/components/ui/button"; // Assuming Shadcn/ui Button
+
+    export default function Home() {
+      async function handleSubmit(formData: FormData) {
+        'use server'; // Mark function as server action
+        const email = formData.get("email");
+        // In Phase 1, mock submission or use Supabase Auth for simple email sign-up
+        console.log("Submitted email:", email);
+        // TODO: Phase 1 - Implement basic email collection (Supabase Auth or direct DB write - simplified)
+        // TODO: Phase 2 - Integrate with Backend API for user preference storage and proper signup flow
+      }
+
+      return (
+        <section className="container py-24">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold mb-8">Personalized Stock Updates</h1>
+            <p className="text-lg text-gray-600 mb-8">Never miss a market-moving event again.</p>
+            <form action={handleSubmit} className="space-y-4 inline-block text-left">
+              <input
+                type="email"
+                id="email"
+                name="email"
+                placeholder="Enter your email"
+                required
+                className="p-2 border rounded w-full md:w-80"
+              />
+              <Button type="submit" variant="primary" size="lg">
+                Get Started - Catch the Next Big Move
+              </Button>
+            </form>
+          </div>
+          {/* ... Sample Updates section (static content) ... */}
+        </section>
+      );
+    }
+    ```
+- **Future Data Fetching (User Preferences/Updates - Phase 2/3)**: When implementing user preference management and (future) internal dashboard features, use TanStack Query for data fetching from the backend API, as described in the general frontend guidelines. Use typesafe API client (`apiRpc`) for backend interactions.
+
+</data_fetching>
+
+<state_management>
+- **React Query for Server State**: Use TanStack Query for managing server state related to user preferences and stock updates (when implemented in Phase 2/3). Not needed for the initial landing page (Phase 1).
+- **Client-Side State (Minimal)**:  For simple client-side UI state (e.g., form input values, modal visibility on the landing page), use `useState`. Avoid complex client-side state management in the initial landing page phase. For form state management in later phases, use React Hook Form.
+- **URL Search Params (nuqs - if needed - Phase 2/3)**: If you need to manage any UI state in the URL (e.g., for landing page variations or referral tracking - potentially later), consider using 'nuqs' as suggested in the general guidelines. Not needed for Phase 1.
+
+</state_management>
+
+<components_and_reusability>
+- **Component Library (Shadcn/ui)**: Leverage Shadcn/ui components as much as possible for consistency and speed of development. Customize Shadcn/ui components as needed for project styling.
+- **Reusable Components**: Create reusable React components for common UI elements (buttons, inputs, cards, layout sections) to avoid code duplication and improve maintainability. Place shared UI components in `web/src/components/ui` and app-specific reusable components in `web/src/components/layout` or feature-specific folders as per the component colocation strategy. Create reusable layout components for consistent page structure (e.g., `MainLayout`, `LandingPageLayout`).
+- **Presentational and Container Components**: Consider separating components into presentational (UI-focused) and container (logic and data-fetching focused) components for better organization and testability, especially as the application grows beyond the landing page in later phases. For Phase 1, focus on clear component structure and separation of concerns.
+
+</components_and_reusability>
+
+<performance_optimization>
+- **Next.js Optimizations**: Leverage Next.js's built-in performance optimizations:
+    - Server Rendering (by default for Server Components).
+    - Code Splitting.
+    - Image Optimization (`next/image`).
+    - Route Prefetching (Next.js automatic prefetching).
+- **Optimize Images (if used on landing page)**: If you use images on the landing page, optimize them: use WebP format, size attributes, and lazy loading using `next/image`. Optimize image sizes and quality for web performance. Compress images before using them in the project.
+- **Minimize Client-Side JavaScript**: By using Server Components as much as possible, minimize the amount of JavaScript sent to the client, improving initial load times and Time to Interactive (TTI). Analyze bundle size and identify opportunities to reduce client-side JS.
+- **Code Splitting**: Ensure Next.js code splitting is working effectively. Analyze chunks and identify potential optimizations.
+
+</performance_optimization>
+
+<testing>
+- **Landing Page Testing**: Focus on thorough manual testing of the landing page across different browsers and devices to ensure visual consistency, responsiveness, and functionality (form submission). Use browser developer tools for debugging and performance analysis. Test form submission flow (even if it's a mock submission in Phase 1).
+- **Component Testing (Future - Phase 2/3)**: As you build more interactive components and features beyond the landing page, consider writing unit tests using Vitest and React Testing Library for critical components, as suggested in the general guidelines. Write unit tests for complex UI components and utility functions.
+- **End-to-End Testing (Future Dashboard - Phase 2/3)**: For more complex features (like the internal dashboard - future), consider end-to-end testing with tools like Playwright or Cypress to ensure features work correctly from the user perspective. Plan for end-to-end tests to cover key user flows in later phases.
+
+</testing>
+
+<package_management>
+- Follow the general `pnpm` package management guidelines provided in the examples.
+- Use `pnpm lockfiles` to ensure consistent dependency versions across environments.
+- Pin specific versions in `package.json` for critical dependencies (e.g., `"react": "18.3.0", "next": "15.0.0"`).
+- Regularly update dependencies, but test thoroughly for breaking changes after updates. Use `pnpm update --interactive` to review and update dependencies interactively.
+
+</package_management>
+
+<development_workflow>
+- Follow the general frontend development workflow and best practices outlined in the "Useful for building react full stack applications" document.
+- For landing page development:
+    1. **Design Mockups**: Create detailed design mockups for the landing page based on the PRD description. Use Figma or similar design tools for mockups and wireframes. Get design sign-off before development.
+    2. **Component Structure**: Plan the component structure for the landing page, identifying reusable components and Shadcn/ui components to use. Break down the landing page into sections, components, and sub-components in a component tree diagram.
+    3. **Implement Components**: Implement React components for the landing page using Shadcn/ui and Tailwind CSS, following the UI and styling guidelines. Start with layout components (header, footer, sections) and then build content components (hero section, features section, sample updates section, form section).
+    4. **Content Integration**: Integrate content (text, sample updates, hooks, legal text - privacy policy, terms of service) into the landing page components. Use realistic content and refine copywriting iteratively.
+    5. **Form Implementation**: Implement the sign-up form using a simple HTML form initially in `page.tsx`.
+    6. **Responsiveness Testing**: Test the landing page responsiveness across different screen sizes and browsers. Use browser developer tools, device emulators, and real devices for comprehensive testing.
+    7. **Performance Optimization**: Implement performance optimizations (image optimization, minimize client-side JS). Run performance audits using browser developer tools and performance testing tools like Google PageSpeed Insights.
+    8. **Accessibility Testing**: Test basic accessibility using browser extensions and accessibility checkers.
+    9. **Deployment**: Deploy the landing page to a hosting platform (e.g., Vercel, Netlify). Set up CI/CD for automated deployments using Git hooks and deployment workflows.
+
+</development_workflow>
+
+<naming_conventions>
+- Adhere to the naming conventions (directories, components, exports) outlined in the "Useful for building react full stack applications" document. Be consistent with naming throughout the frontend codebase.
+
+</naming_conventions>
+
+<typescript_usage>
+- Follow the TypeScript usage guidelines from the "Useful for building react full stack applications" document. Use TypeScript for all frontend code. Enforce strict TypeScript settings in `tsconfig.json` to catch type errors early.
+
+</typescript_usage>
+
+<syntax_and_formatting>
+- Adhere to the syntax and formatting guidelines described in the "Useful for building react full stack applications" document. Use Prettier and ESLint to enforce code style and formatting consistently across the frontend codebase. Configure your IDE to auto-format code on save and run ESLint on file changes.
+
+</syntax_and_formatting>
+
+<performance_metrics>
+- **Target Web Vitals (Phase 1 Landing Page):**
+    - **LCP (Largest Contentful Paint):** < 2.5 seconds - Optimize images, critical path rendering, server-side rendering.
+    - **CLS (Cumulative Layout Shift):** < 0.1 - Ensure images and ads have size attributes, avoid layout shifts caused by dynamically loaded content.
+    - **FID (First Input Delay):** < 100 milliseconds - Minimize JavaScript execution time, break up long tasks, optimize third-party scripts.
+- **Monitoring Tools:**
+    - Use Next.js built-in analytics (if deployed on Vercel) for basic Web Vitals monitoring.
+    - Integrate Google PageSpeed Insights for detailed performance analysis and recommendations.
+    - Consider using web performance monitoring tools (e.g., WebPageTest, Lighthouse CI) for continuous performance tracking.
+- **Performance Budget:** Define a performance budget for key metrics (e.g., "Landing page JavaScript bundle size should be under 150KB"). Track metrics against the budget and optimize to stay within limits.
+</performance_metrics>
+
+<legal_requirements>
+- **Privacy Policy:** Include a basic privacy policy on the landing page. Example text (consult legal counsel for proper wording): "We collect your email address when you sign up to receive stock updates. We will use your email address to send you weekly updates and occasional service-related announcements. We will not share your email address with third parties without your consent. See our full Privacy Policy [Link to full Privacy Policy page]."  Create a separate "Privacy Policy" page with more detailed information.
+- **Terms of Service:** Include basic terms of service on the landing page (linked in the footer). Example text (consult legal counsel): "By using this service, you agree to our Terms of Service [Link to full Terms of Service page]." Create a separate "Terms of Service" page with detailed terms of use, disclaimers, and liability limitations.
+- **GDPR/CCPA Compliance (Basic Awareness):** If targeting users in Europe (GDPR) or California (CCPA), be aware of basic data privacy requirements. For Phase 1 (email collection), ensure you have a clear lawful basis for processing email addresses (e.g., consent), provide users with information about data collection practices, and offer a way to unsubscribe. Consult legal counsel for full compliance in later phases, especially when handling more user data.
+- **Legal Review:**  It is highly recommended to have a lawyer review your privacy policy and terms of service, especially before Phase 1 launch, to ensure legal compliance and protect your project from potential liabilities.
+
+</legal_requirements>
+
+<integration_testing>
+- Plan for integration tests to verify communication and data flow between:
+    - Frontend (Landing Page Form) and Supabase Auth (or mock backend for Phase 1 sign-up).
+    - Frontend components and backend API (in Phase 2/3 for user preferences and dashboard data).
+- Use tools like Playwright or Cypress for end-to-end integration tests. Focus on testing user flows, form submissions, and data display.
+- For Phase 1, focus on testing the landing page form submission flow and basic UI rendering. More comprehensive integration tests will be needed in later phases when integrating with the backend API and implementing user features.
+</integration_testing>
+
+<risk_management>
+- Refer to the Project Management Guidelines document for detailed risk management strategies and mitigation plans. Key risks relevant to the Frontend Web include:
+    - Landing Page Performance Issues (slow load times, responsiveness problems).
+    - UI/UX Design Flaws (poor user experience, low conversion rates).
+    - Browser Compatibility Issues (rendering problems on different browsers/devices).
+    - Security Vulnerabilities (Cross-Site Scripting (XSS) - although less likely with Server Components, still consider input sanitization if using Client Components for form handling in later phases).
+- Regularly review and update the risk register in the Project Management Guidelines document.
+</risk_management>
+
+<logging_strategy>
+- For frontend logging (primarily for error tracking in Client Components in later phases), consider using browser-based error tracking services (e.g., Sentry, BugSnag) or basic client-side logging to console for debugging during development. For Phase 1 landing page (mostly Server Components), server-side logging via Next.js and `@repo/logger` (if applicable for any server-side form handling or logic) will be more relevant. Centralized logging (as described in Backend and Python rules) will be primarily focused on backend and AI system components.
+</logging_strategy>

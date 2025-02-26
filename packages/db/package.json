@@ -1,0 +1,48 @@
+{
+  "name": "@repo/db",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./schema": {
+      "import": "./dist/schema/index.js",
+      "types": "./dist/schema/index.d.ts"
+    },
+    "./types": {
+      "import": "./dist/types.js",
+      "types": "./dist/types.d.ts"
+    }
+  },
+  "license": "MIT",
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "eslint src/",
+    "clean": "rimraf .turbo node_modules dist",
+    "test": "vitest run",
+    "generate": "drizzle-kit generate:pg",
+    "migrate": "bun src/migrate.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.19",
+    "drizzle-kit": "^0.21.0",
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
+    "pg": "^8.11.3",
+    "rimraf": "^5.0.5",
+    "tsup": "^8.0.2",
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.2"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.40.0",
+    "drizzle-zod": "^0.7.0",
+    "postgres": "^3.4.3",
+    "zod": "^3.22.4"
+  }
+}

@@ -1,0 +1,108 @@
+---
+description: Project Management Guidelines for Personalized Stock Update Service
+---
+# Project Management Guidelines: Personalized Stock Update Service
+
+This document outlines project management guidelines to ensure efficient development, resource allocation, and successful delivery of the Personalized Stock Update Service.
+
+## 1. Budget and Resource Planning
+
+### a. Estimated Budget (Phase 1 - Initial)
+
+**Note:** These are rough estimates and need to be refined based on actual vendor pricing and team size.
+
+| Category                     | Estimated Cost (Phase 1) | Notes                                                                      |
+| ---------------------------- | ------------------------ | -------------------------------------------------------------------------- |
+| **API Subscriptions:**       |                          |                                                                            |
+| - X API (Initial Access)   | $0 - $100/month          | Basic access might be free or low-cost initially; costs may increase with usage |
+| - Alpha Vantage (Basic)      | $0 - $50/month           | Free tier or basic plan for market data                                     |
+| - Cheddar Flow/WhaleStream (Optional Phase 2/3) | $50 - $200+/month   | For option flow/dark pool data (consider for later phases)                |
+| **Cloud Hosting:**           |                          |                                                                            |
+| - Supabase (Free Tier)       | $0                       | Initially utilize free tier; monitor usage                                   |
+| - Vercel/Netlify (Free Tier) | $0                       | Free tier for landing page hosting                                           |
+| - AWS/GCP (Scraping - Phase 1) | $0 - $50/month           | For running scraping scripts (consider serverless functions for cost-efficiency) |
+| **Email Service:**           |                          |                                                                            |
+| - SendGrid (Free Tier)       | $0                       | Free tier for initial email volume; monitor usage                             |
+| **Developer Tools/Licenses:** |                          |                                                                            |
+| - Figma (Design - Optional) | $0 - $20/month           | If using Figma for design mockups (free tier or paid plan)                |
+| - Vitest/Testing Libraries  | $0                       | Open-source, no cost                                                         |
+| **Team Resources (Estimated Hours - Phase 1):** |         | Assumes a small team or individual developer wearing multiple hats           |
+| - Backend Engineer          | 80 - 120 hours           | API development, database setup, integration                                 |
+| - Frontend Engineer         | 60 - 100 hours           | Landing page development, UI/UX                                             |
+| - AI/Data Scientist         | 80 - 120 hours           | Scraping script development, AI analysis, trigger logic                     |
+| - Project Management/Testing | 40 - 60 hours            | Coordination, testing, documentation, deployment                             |
+| **Contingency/Buffer**       | 10-20% of Total           | For unexpected costs or delays                                              |
+| **Total Estimated Cost (Phase 1):** | **$250 - $700+ (Range)** | Highly variable depending on API usage and team size/rates                |
+
+**Note:** Labor costs are highly dependent on team composition (internal team vs. freelancers/agency) and hourly rates.  These are rough estimates for initial planning.
+
+### b. Resource Allocation (Phase 1 - Example Team)
+
+**Example Team Roles (Small Team/Individual):**
+
+*   **Role 1: Full-Stack Engineer (Backend & Frontend)** - Responsible for API development, database integration, landing page development, and deployment.
+*   **Role 2: AI/Data Scientist** - Responsible for scraping script development, AI analysis, trigger generation, and data source management.
+*   **(Optional) Role 3: Project Manager/Tester** - (May be combined with other roles initially) - Responsible for project coordination, task tracking, testing, documentation, and deployment management.
+
+**Resource Tracking:**
+
+*   Use a project management tool (e.g., Trello, Jira, GitHub Projects) to track tasks, assign responsibilities, and monitor progress.
+*   Regular team check-ins (daily or bi-weekly) to discuss progress, roadblocks, and resource needs.
+*   Time tracking (optional, but helpful for budget monitoring, especially for external resources).
+
+## 2. Risk Management
+
+### a. Identified Risks and Mitigation Strategies
+
+| Risk                                  | Mitigation Strategy                                                                                                                             | Contingency Plan                                                                                                           | Phase Relevance |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| **X API Rate Limits/Changes**         | Monitor X API usage closely. Implement rate limiting in Python scraping scripts. Use exponential backoff for retries. Consider caching X data.       | Fallback to cached X data if API limits are reached. Prioritize other data sources for updates if X data is unavailable. | Phase 1, 2, 3  |
+| **SEC EDGAR Scraping Instability**    | Use robust scraping libraries (Scrapy - consider for later phases). Implement error handling and retry logic. Respect robots.txt.                     | If SEC EDGAR scraping fails, rely on cached data or delay updates until scraping is restored.                        | Phase 1, 2, 3  |
+| **Market Data API Costs/Limits**      | Choose cost-effective APIs (Alpha Vantage basic tier initially). Monitor API usage. Implement caching for market data.                                | If API costs exceed budget, reduce API usage frequency or switch to a cheaper/free alternative (if feasible).              | Phase 1, 2, 3  |
+| **SendGrid Email Delivery Issues**    | Monitor SendGrid delivery rates and bounce rates. Implement email sending error handling and retry logic.  Set up email authentication (SPF, DKIM). | If SendGrid delivery fails, investigate issues with SendGrid account or consider alternative email service (if critical). | Phase 1, 2, 3  |
+| **Data Source Reliability/Accuracy** | Prioritize credible data sources (listed in PRD). Implement data validation and cleaning in AI scripts. Cross-validate data from multiple sources. | If data source is unreliable, remove it from the data pipeline or flag updates derived from that source with caution.    | Phase 1, 2, 3  |
+| **Development Delays**              | Break down tasks into smaller, manageable units. Track progress regularly. Implement daily/weekly check-ins. Prioritize core features for each phase.  | Re-prioritize tasks, adjust timelines, or reduce scope if necessary to meet key milestones.                          | Phase 1, 2, 3  |
+| **Legal/Compliance Risks**          | Consult with legal counsel (if budget allows, especially for later phases). Draft basic privacy policy and terms of service for Phase 1.            |  Review and update privacy policy and terms of service regularly. Seek legal advice for data handling and scraping practices. | Phase 1, 2, 3  |
+| **Security Vulnerabilities**          | Follow secure coding practices (outlined in rules). Implement basic security measures in each phase. Conduct security testing in later phases.          |  Regular security audits and penetration testing in later phases to identify and address vulnerabilities.                 | Phase 2, 3    |
+
+### b. Risk Monitoring and Reporting
+
+*   Regularly review the risk register (table above) during project meetings.
+*   Track identified risks and their status (open, mitigated, resolved).
+*   Escalate high-priority risks to relevant stakeholders promptly.
+*   Document any new risks identified during development and update the risk register.
+
+## 3. Documentation and Onboarding
+
+### a. Project Documentation
+
+*   **Project Requirements Document (PRD):**  The primary source of project vision, features, and target audience.
+*   **Project Phases and Deliverables Document:** (This document) - Outlines project phases, goals, and deliverables for each phase.
+*   **Project Overview and Non-Technical Guide:**  Provides a high-level overview for non-technical stakeholders.
+*   **Coding Rules Documents (Backend API, Python AI, Frontend Web):**  Detailed technical guidelines for development.
+*   **Project Management Guidelines:** (This document) - Outlines budget, resources, risk management, and documentation practices.
+*   **API Documentation (Internal):**  Documentation for API endpoints used for AI system communication and (future) dashboard.
+*   **Code Comments and Docstrings:**  In-code documentation for clarity and maintainability.
+*   **Deployment and Operations Documentation (Phase 3):**  Documentation for setting up, deploying, and operating the service.
+*   **Legal and Compliance Documentation (Phase 3):**  Privacy policy, terms of service, and any legal reviews/compliance documentation.
+
+### b. Onboarding New Team Members
+
+*   Provide access to all project documentation (listed above).
+*   Conduct a project overview and architecture walkthrough for new team members.
+*   Assign a mentor or buddy to guide new team members during onboarding.
+*   Set up access to project repositories, tools, and environments.
+*   Provide clear initial tasks and expectations for new team members.
+
+## 4. Final Checklist Before Starting (Reiterated)
+
+Before development begins, ensure you have:
+
+*   **[✓] API Keys and Credentials:** X API, Alpha Vantage, SendGrid, Supabase (stored securely in .env files, not committed to Git).
+*   **[✓] Design Assets:** Figma mockups or wireframes for the landing page and email templates.
+*   **[✓] Legal Review:** Draft privacy policy and terms of service for the landing page.
+*   **[✓] Team Alignment:** Ensure all team members (backend, frontend, AI, DevOps) have access to rule documents, understand phases, and agree on tools (e.g., VS Code, Git workflow).
+*   **[✓] Infrastructure Setup:** Supabase project, Vercel/Netlify account, AWS/GCP for scraping (if needed).
+*   **[✓] Initial Testing Plan:** Manual testing for Phase 1, automated unit tests for critical components.
+
+---

@@ -1,0 +1,333 @@
+---
+description: Backend API Development Rules for Personalized Stock Update Service using Hono and Drizzle
+globs: apps/api/src/**/*.ts
+alwaysApply: true
+---
+# Backend API Development Guidelines for Stock Update Service
+
+These guidelines are specifically tailored for building the backend API of the Personalized Stock Update Service using Hono for routing and Drizzle for database interactions. They extend the general API guidelines you provided, focusing on the unique requirements of this service and incorporating architectural, pre-development, and enhanced feature considerations.
+
+<project_context>
+### Project Overview
+- **Vision**:  Build a backend API to support a personalized stock update service. This API will manage user subscriptions, receive triggers from an AI system, orchestrate email updates, and (in later phases) power an internal dashboard.
+- **Phase 1 Focus**: Landing page support and weekly personalized email updates.
+- **Scalability (Initial)**: Focus on functional correctness and basic performance. Scalability optimizations will be addressed in later phases as needed.
+- **Security (Initial)**: Basic security considerations for API interactions between components. More robust security measures will be implemented in phases involving user authentication and data access control.
+- **Legal & Compliance**:  Be aware of basic data privacy considerations for user preferences collected.  A basic privacy policy will be needed for the landing page.
+- **Budget**:  Utilize Supabase free tier initially. Monitor SendGrid usage to stay within free or low-cost tiers for email sending in Phase 1.
+</project_context>
+
+<project_phases>
+### Project Phases and Deliverables (Backend API Specific)
+- **Phase 1 Deliverables (Backend API):**
+    - Basic API structure (Hono routes, Drizzle setup, Supabase integration).
+    - API endpoint for receiving AI triggers (`/ai-triggers`).
+    - Notifications service with SendGrid integration for weekly emails.
+    - Basic user preferences data model (initial schema in Supabase).
+- **Phase 2 Deliverables (Backend API):**
+    - Real-time alert processing and delivery logic.
+    - API integration with option flow and dark pool data (data retrieval and processing).
+    - API endpoints for user preference management (create, read, update).
+    - API key authentication for AI system communication.
+- **Phase 3 Deliverables (Backend API):**
+    - API endpoints to support the internal dashboard (data retrieval, management).
+    - Logic for handling custom triggers and complex user preferences.
+    - Scalability and performance optimizations for API and database.
+    - Robust user authentication and authorization for dashboard access.
+</project_phases>
+
+<core_architecture>
+- **System Architecture**:
+    - **Backend API (Hono)**:  Handles API requests, business logic, database interactions, and communication with the AI system and SendGrid.
+    - **Database (Supabase PostgreSQL)**: Stores user preferences and (future) stock update data.
+    - **AI System (Python)**:  External system (initially) responsible for scraping data, analyzing it, and generating triggers. Communicates with the API via HTTP.
+    - **Email Service (SendGrid)**:  Handles sending personalized email updates triggered by the API.
+- **Data Flow**:
+    1. Frontend (landing page) interacts directly with Supabase Auth for sign-up (initially).
+    2. User preferences (input form on landing page - future) will be sent to the Backend API.
+    3. Backend API stores user preferences in Supabase DB.
+    4. Python AI system scrapes data from external sources.
+    5. AI system analyzes data and sends triggers to the Backend API (HTTP POST).
+    6. Backend API processes triggers, retrieves user preferences, generates updates, and sends emails via SendGrid.
+    7. (Future Dashboard) Frontend dashboard will fetch update data from the Backend API.
+</core_architecture>
+
+<tech_stack>
+- **Server & Routing**: Hono
+- **Database ORM**: Drizzle with PostgreSQL (Supabase)
+- **Data Validation**: Zod with zValidator
+- **Email Delivery**: SendGrid API (integration within service layer)
+- **AI Integration**: HTTP API interface for communication with Python-based AI system. JSON for data exchange.
+- **Database**: Supabase PostgreSQL (managed service)
+- **Runtime**: Bun
+- **Package Manager**: pnpm
+- **Logging**: `@repo/logger` (shared package)
+</tech_stack>
+
+<development_environment>
+- **Local Setup**: Ensure Node.js, Bun, and Supabase CLI are installed. Configure Supabase CLI to connect to your Supabase project (local or cloud). Set up environment variables for database connection and SendGrid API key.
+- **IDE**: VS Code (recommended) or your preferred IDE configured for TypeScript development with ESLint and Prettier.
+- **Testing (Initial)**: Manual testing via API clients (e.g., Insomnia, Postman) and basic unit tests as needed.  Plan for integration tests with the AI system in later phases.
+- **Version Control**: Git. Use feature branches for development and merge into `main`.
+</development_environment>
+
+<module_development_guidelines>
+### 1. Database Layer (packages/db/schema.ts)
+- Define Drizzle schemas for:
+    - `users_preferences` table: Stores user's stock tickers, sectors, trading style, update frequency, custom triggers. Link to Supabase auth `users` table if needed for user identification.
+    - `stock_updates` table: Stores generated stock updates, timestamps, related tickers, update type (hedge fund activity, market shift, etc.). (Potentially for internal dashboard - future)
+    - Consider additional tables for storing raw scraped data if needed for debugging or analysis (Phase 2/3).
+- Use `varchar` for IDs and `text` for other string fields unless length constraints are necessary.
+- Leverage `packages/id/src/generate.ts` for ID generation for any new tables (if needed beyond user IDs provided by Supabase Auth).
+
+### 2. Service Layer (apps/api/src/modules/[module].service.ts)
+- Implement business logic for each module (users, updates, notifications, ai-triggers).
+- **Users Service**:
+    - Functions to create, read, update, and delete user preferences.
+    - Fetch user preferences for update personalization.
+- **Updates Service**:
+    - (Future) Functions to fetch and manage stock updates for the internal dashboard.
+    - Logic to format updates for email delivery.
+- **Notifications Service**:
+    - Functions to handle email sending using SendGrid API.
+    - Implement retry mechanisms and error logging for email delivery.
+- **AI Triggers Service**:
+    - Functions to receive and process triggers from the AI system.
+    - Logic to fetch relevant user preferences based on AI triggers and initiate update generation.
+    - Implement retry logic with exponential backoff for processing AI triggers (see example in <ai_and_data_processing_guidelines>).
+- All service functions should:
+    - Be asynchronous.
+    - Handle database operations using Drizzle ORM.
+    - Return strongly typed responses.
+    - Import `db` from `@repo/db`.
+    - Implement error handling (e.g., using try-catch and logging errors with `@repo/logger`).
+
+### 3. Route Layer (apps/api/src/modules/[module].routes.ts)
+- Define Hono routes for each module.
+- **User Routes**:
+    - `POST /users/preferences`: Create or update user preferences (authenticated - future).
+    - `GET /users/preferences`: Get user preferences (authenticated - future).
+- **Updates Routes**:
+    - (Future - Internal Dashboard) `GET /updates`: Fetch recent stock updates (authenticated, admin-only - future).
+    - Example route with error handling:
+    ```ts
+    import { logger } from "@repo/logger";
+    import { zValidator } from "@/pkg/util/validator-wrapper";
+    import { tickerSchema } from "./validators"; // Example Zod schema
+
+    const stockUpdateRoutes = new Hono()
+      .get("/:ticker", zValidator("param", tickerSchema), async (c) => {
+        try {
+          const { ticker } = c.req.valid("param");
+          const events = await stockUpdateService.getEventsByTicker(ticker);
+          return c.json(events);
+        } catch (error) {
+          logger.error("Error fetching stock events", { error, ticker });
+          return c.json({ status: "error", message: error.message, code: 500 }, 500); // Standard error response
+        }
+      });
+    ```
+- Implement request validation using `zValidator` and Zod schemas (defined in `packages/db/types.ts` or within the route file if module-specific).
+- Apply authentication middleware (Clerk - future, if needed for user management or internal dashboard).
+- Structure routes logically by resource.
+- Return consistent HTTP responses (JSON format).
+- Use descriptive route paths.
+- Define standard error responses (e.g., `{ status: "error", message: "Invalid ticker", code: 400 }`).
+
+### 4. AI System Integration (apps/api/src/modules/ai-triggers/ai-triggers.service.ts)
+- Define how the API will receive triggers from the Python-based AI system.
+    - Use HTTP POST requests from the Python system to API endpoints (e.g., `/ai-triggers`).
+    - Define a strict JSON schema for AI triggers. Example:
+    ```json
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AITriggerPayload",
+      "description": "Payload for AI trigger events",
+      "type": "object",
+      "properties": {
+        "event_type": {
+          "type": "string",
+          "description": "Type of AI event (e.g., hedge_fund_buy, investor_mention, market_shift)",
+          "enum": ["hedge_fund_buy", "investor_mention", "market_shift", "technical_signal", "option_flow", "dark_pool_buy"]
+        },
+        "ticker": {
+          "type": "string",
+          "description": "Stock ticker symbol (e.g., AAPL, NVDA)"
+        },
+        "fund": {
+          "type": "string",
+          "description": "Name of the hedge fund (if applicable, e.g., Bridgewater, Citadel)"
+        },
+        "shares": {
+          "type": "integer",
+          "description": "Number of shares involved in the event (if applicable)"
+        },
+        "shares_value": {
+          "type": "number",
+          "description": "Value of shares involved in the event (if applicable, in USD)"
+        },
+        "investor": {
+          "type": "string",
+          "description": "Name of the investor (if applicable, e.g., Warren Buffett, Bill Ackman)"
+        },
+        "source": {
+          "type": "string",
+          "description": "Source of the information (e.g., SEC 13F filing, X post, news article URL)"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of the event in ISO 8601 format (e.g., 2025-02-25T12:00:00Z)"
+        }
+      },
+      "required": ["event_type", "ticker", "timestamp"]
+    }
+    ```
+    Example Payload: `{"event_type": "hedge_fund_buy", "ticker": "AAPL", "fund": "Citadel", "shares": 1000000, "shares_value": 150000000, "timestamp": "2025-02-25T12:00:00Z", "source": "SEC 13F Filing - Citadel LLC"}`
+
+- Implement logic to process AI triggers in the `ai-triggers.service.ts`. Example with retry logic:
+    ```ts
+    import { db, stockEvents } from "@repo/db";
+    import { notificationsService } from "../notifications/notifications.service";
+    import { logger } from "@repo/logger";
+    import { AITriggerPayload } from "./ai-triggers.types"; // Define your type
+
+    export const aiTriggersService = {
+      async processAITrigger(payload: AITriggerPayload, retries = 3): Promise<void> {
+        try {
+          const { event_type: eventType, ticker, fund, shares, shares_value: sharesValue, investor, source, timestamp } = payload;
+          await db.insert(stockEvents).values({
+            ticker,
+            eventType,
+            details: JSON.stringify({ fund, shares, sharesValue, investor, source }),
+            timestamp: new Date(timestamp), // Ensure timestamp is correctly parsed
+          });
+          await notificationsService.sendUpdate(ticker, eventType); // Assuming a sendUpdate function exists
+        } catch (error) {
+          if (retries > 0) {
+            const retryDelay = 1000 * (4 - retries); // Exponential backoff: 3s, 2s, 1s
+            logger.warn(`Failed to process AI trigger, retrying in ${retryDelay/1000}s`, { error, payload, retries });
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+            return this.processAITrigger(payload, retries - 1);
+          }
+          logger.error("Failed to process AI trigger after multiple retries", { error, payload });
+          throw error; // Or handle error more gracefully, e.g., store failed triggers for later processing
+        }
+      },
+    };
+    ```
+- Map AI triggers to specific update types and user preferences.
+- Initiate update generation and notification sending from the `ai-triggers.service.ts`.
+- Ensure basic security for the API endpoint receiving AI triggers (e.g., API key authentication - for later phases).
+
+### 5. Email Delivery (apps/api/src/modules/notifications/notifications.service.ts)
+- Integrate with SendGrid API to send personalized email updates.
+- Create email templates for different update types (hedge fund activity, market shifts, etc.). Keep them concise and actionable as per PRD.
+- Format updates concisely and actionably as described in the PRD.
+- Implement error handling for email sending failures.
+- Log email sending status and errors using `@repo/logger` for monitoring and debugging.
+- Consider rate limiting to avoid exceeding SendGrid API limits (monitor usage and implement if needed).
+
+</module_development_guidelines>
+
+<package_management>
+- Follow the general `pnpm` package management guidelines provided in the examples.
+- Use `pnpm lockfiles` to ensure consistent dependency versions across environments.
+- Pin specific versions in `package.json` for critical dependencies (e.g., `"drizzle-orm": "0.30.0"`).
+- Regularly update dependencies, but test thoroughly for breaking changes after updates.
+</package_management>
+
+<development_guidelines>
+- Adhere to the general development guidelines (Running Scripts, Monorepo, Type Safety, Error Handling, Authentication & Authorization, API Design Principles, Database Operations) provided in the examples.
+- **Logging**:  Use `@repo/logger` consistently throughout the backend API for application logging, especially for:
+    - API request/response logging (for debugging and monitoring).
+    - Database operation logging (for debugging and performance analysis).
+    - Error logging (for identifying and resolving issues).
+    - AI trigger processing logs (for tracking AI system interactions).
+    - Email sending logs (for monitoring email delivery status).
+</development_guidelines>
+
+<dev_workflow>
+- Follow the general module creation workflow provided in the examples.
+- When developing new features related to stock updates, consider the following workflow:
+    1. **AI Trigger Definition**: Define the specific event or condition that should trigger a stock update (e.g., "Hedge fund X buys stock Y").
+    2. **AI System Implementation**: Implement the logic in the Python-based AI system to detect the trigger event from data sources.
+    3. **API Trigger Endpoint**: Define an API endpoint in `ai-triggers.routes.ts` to receive triggers from the AI system.
+    4. **AI Triggers Service Logic**: Implement the logic in `ai-triggers.service.ts` to process the trigger, fetch relevant user preferences, and initiate update generation.
+    5. **Updates Service Logic**: Implement or update the logic in `updates.service.ts` to generate personalized stock updates based on user preferences and the trigger event.
+    6. **Notifications Service Logic**:  Use `notifications.service.ts` to send email updates to relevant users.
+    7. **Frontend Integration (Future Dashboard)**:  If applicable, create frontend components and API hooks in the `web` app to display and manage stock updates (for the internal dashboard).
+    8. **Testing**: Write unit and integration tests for the backend API and AI system components. Focus on integration tests between API and AI system.
+</dev_workflow>
+
+<example_api_workflow>
+- Refer to the example API workflow provided in your examples for general guidance on creating modules, services, and routes. Adapt it to the specific modules and logic required for the stock update service.
+</example_api_workflow>
+
+<scalability_security_considerations>
+- **Scalability (Phase 1)**:  Start with basic implementation. Monitor performance and identify bottlenecks as usage grows. Consider horizontal scaling of the API if needed in later phases.
+- **Performance Monitoring (Phase 1)**:
+    - Use `@repo/logger` to log API request latency, database query times, and email delivery times. Example:
+    ```ts
+    import { logger } from "@repo/logger";
+
+    // ... in your route or service function ...
+    const start = performance.now();
+    const data = await yourDatabaseQueryOrApiServiceCall(); // Example async operation
+    const duration = performance.now() - start;
+    logger.info("Operation completed", { duration, operation: "yourDatabaseQueryOrApiServiceCall" });
+    return c.json(data);
+    ```
+    - Consider integrating a basic monitoring tool (e.g., Supabase Analytics initially, explore New Relic, Datadog for later phases) to track API performance and error rates.
+- **Security (Phase 1)**:  Focus on secure coding practices and basic input validation.  Implement API key authentication for AI system communication in Phase 2.  User authentication and authorization will be implemented for the dashboard and user preference management features in Phase 2/3.
+</scalability_security_considerations>
+
+<error_handling>
+- Define standard error responses (e.g., `{ status: "error", message: "Invalid ticker", code: 400 }`).
+- Use try-catch blocks consistently in routes and services to handle potential errors.
+- Log errors using `@repo/logger`, including error details and context (e.g., ticker, user ID, request parameters).
+- Return structured JSON error responses to the frontend (or AI system) with appropriate HTTP status codes (e.g., 400 for bad requests, 500 for server errors).
+</error_handling>
+
+<integration_testing>
+- Plan for integration tests to verify communication and data flow between:
+    - Frontend (Landing Page Form) and Backend API (User Sign-up - Phase 1, User Preferences - Phase 2).
+    - AI System (Python) and Backend API (Trigger Delivery and Processing).
+    - Backend API and Email Service (SendGrid - Email Sending).
+- Use tools like Vitest or Playwright for integration tests. Focus on testing end-to-end flows rather than isolated units.
+- For Phase 1, focus on testing the AI system trigger endpoint and basic email sending integration. More comprehensive integration tests will be needed in later phases.
+</integration_testing>
+
+<risk_management>
+- Refer to the Project Management Guidelines document for detailed risk management strategies and mitigation plans.  Key risks relevant to the Backend API include:
+    - API Rate Limits from Data Sources (Alpha Vantage, etc.)
+    - Scalability issues with API under load.
+    - Security vulnerabilities in API endpoints.
+    - Errors in AI trigger processing and email delivery.
+- Regularly review and update the risk register in the Project Management Guidelines document.
+</risk_management>
+
+<logging_strategy>
+- Implement centralized logging using a service like Logtail or Papertrail (consider for Phase 2/3, initially use console logging via `@repo/logger`).
+- Standardize log formats as JSON with the following fields:
+    - `timestamp`: (ISO 8601 format)
+    - `level`: (e.g., "info", "warn", "error", "debug")
+    - `message`: (Descriptive log message)
+    - `component`: (e.g., "api-routes", "ai-triggers-service", "db-query", "email-sender")
+    - `traceId`: (Unique ID for request tracing - implement in Phase 2/3)
+    - `spanId`: (Span ID for distributed tracing - implement in Phase 2/3)
+    - `metadata`: (Optional object for additional context-specific data, e.g., `{ ticker: "AAPL", userId: "user123" }`)
+- Example using `@repo/logger` to log in JSON format:
+    ```ts
+    import { logger } from "@repo/logger";
+
+    // ... your code ...
+    logger.info(JSON.stringify({
+      message: "Successfully fetched stock events",
+      component: "api-routes",
+      ticker: ticker,
+      duration: performance.now() - start,
+    }));
+    ```
+- Ensure consistent logging levels and message clarity across the backend API codebase.
+</logging_strategy>
