@@ -1,10 +1,10 @@
-import { db, userPreferences, NewUserPreferences } from "@repo/db";
+import { db, userPreferences, type NewUserPreferences } from "@repo/db";
 import { generateId, IDPrefix } from "@repo/id";
-import { logger } from "@repo/logger";
-import { eq } from "drizzle-orm";
+import { createComponentLogger } from "@repo/logger";
+import { safeEq, selectWhere } from "../../lib/db-utils";
 
 // Create a component-specific logger
-const userLogger = logger.child({ component: "users-service" });
+const userLogger = createComponentLogger("users-service");
 
 export const usersService = {
   /**
@@ -12,37 +12,42 @@ export const usersService = {
    */
   async createOrUpdateUserPreferences(data: Omit<NewUserPreferences, "id">): Promise<void> {
     try {
-      userLogger.info("Creating/updating user preferences", { userId: data.userId });
+      userLogger.info("Handling user preferences update", { userId: data.userId });
       
       // Check if user exists
-      const existingUser = await db.select()
-        .from(userPreferences)
-        .where(eq(userPreferences.userId, data.userId))
-        .limit(1);
+      const existingUser = await selectWhere(
+        userPreferences,
+        safeEq(userPreferences.userId, data.userId)
+      );
       
       if (existingUser.length > 0) {
-        // Update existing user
+        // Update existing user preferences
+        userLogger.info("Updating existing user preferences", { userId: data.userId });
+        
         await db.update(userPreferences)
           .set({
             ...data,
             updatedAt: new Date(),
           })
-          .where(eq(userPreferences.userId, data.userId));
-          
-        userLogger.info("Updated user preferences", { userId: data.userId });
+          .where(safeEq(userPreferences.userId, data.userId));
       } else {
-        // Create new user
-        await db.insert(userPreferences).values({
-          id: generateId(IDPrefix.USER),
-          ...data,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
+        // Create new user preferences
+        userLogger.info("Creating new user preferences", { userId: data.userId });
         
-        userLogger.info("Created new user preferences", { userId: data.userId });
+        const id = generateId(IDPrefix.USER);
+        const now = new Date();
+        
+        await db.insert(userPreferences).values({
+          id,
+          ...data,
+          createdAt: now,
+          updatedAt: now,
+        });
       }
+      
+      userLogger.info("Successfully handled user preferences", { userId: data.userId });
     } catch (error) {
-      userLogger.error("Error creating/updating user preferences", { 
+      userLogger.error("Error handling user preferences", { 
         error: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
         userId: data.userId 
@@ -56,14 +61,14 @@ export const usersService = {
    * Get user preferences by user ID
    */
   async getUserPreferences(userId: string) {
-    return db.select()
-      .from(userPreferences)
-      .where(eq(userPreferences.userId, userId))
-      .limit(1);
+    return selectWhere(
+      userPreferences,
+      safeEq(userPreferences.userId, userId)
+    );
   },
   
   /**
-   * Get all users (primarily for admin/testing purposes in Phase 1)
+   * Get all users (admin/testing purposes for Phase 1)
    */
   async getAllUsers() {
     return db.select().from(userPreferences);

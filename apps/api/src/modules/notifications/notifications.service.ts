@@ -2,6 +2,7 @@ import { db, userPreferences, stockEvents } from "@repo/db";
 import { logger } from "@repo/logger";
 import { eq, arrayContains } from "drizzle-orm";
 import sgMail from '@sendgrid/mail';
+import { safeEq, selectWhere } from "../../lib/db-utils.js";
 
 // Create a component-specific logger
 const notificationLogger = logger.child({ component: "notifications-service" });
@@ -37,7 +38,7 @@ export const notificationsService = {
           // User has this ticker in their preferences
           // OR user has a sector that matches this ticker's sector (would need sector data)
           // For now, just check tickers array
-          arrayContains(userPreferences.tickers, [ticker])
+          safeEq(userPreferences.tickers, ticker)
         );
 
       notificationLogger.info(`Found ${usersToNotify.length} users to notify about ${ticker} ${eventType}`);

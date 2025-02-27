@@ -1,36 +1,10 @@
 
 
 > @repo/db@0.1.0 build /Users/blakesingleton/Desktop/AIHedgeFund/packages/db
-> tsup
+> rm -rf dist && npm run build:ts && mkdir -p dist/schema && cp package.json dist/ && cp src/schema/*.ts dist/schema/
 
-[34mCLI[39m Building entry: src/index.ts, src/types.ts, src/schema/index.ts
-[34mCLI[39m Using tsconfig: tsconfig.json
-[34mCLI[39m tsup v8.4.0
-[34mCLI[39m Using tsup config: /Users/blakesingleton/Desktop/AIHedgeFund/packages/db/tsup.config.ts
-[34mCLI[39m Target: es2020
-[34mCLI[39m Cleaning output folder
-[34mESM[39m Build start
-[32mESM[39m [1mdist/types.js            [22m[32m4.23 KB[39m
-[32mESM[39m [1mdist/index.js            [22m[32m5.19 KB[39m
-[32mESM[39m [1mdist/schema/index.js     [22m[32m3.58 KB[39m
-[32mESM[39m [1mdist/types.js.map        [22m[32m8.16 KB[39m
-[32mESM[39m [1mdist/schema/index.js.map [22m[32m6.67 KB[39m
-[32mESM[39m [1mdist/index.js.map        [22m[32m9.04 KB[39m
-[32mESM[39m ⚡️ Build success in 15ms
-DTS Build start
-src/index.ts(3,25): error TS6307: File '/Users/blakesingleton/Desktop/AIHedgeFund/packages/db/src/schema/index.ts' is not listed within the file list of project ''. Projects must list all files or use an 'include' pattern.
-  The file is in the program because:
-    Imported via "./schema/index.js" from file '/Users/blakesingleton/Desktop/AIHedgeFund/packages/db/src/index.ts'
-    Imported via "./schema/index.js" from file '/Users/blakesingleton/Desktop/AIHedgeFund/packages/db/src/index.ts'
-  File is ECMAScript module because '/Users/blakesingleton/Desktop/AIHedgeFund/packages/db/package.json' has field "type" with value "module"
-src/index.ts(15,15): error TS6307: File '/Users/blakesingleton/Desktop/AIHedgeFund/packages/db/src/types.ts' is not listed within the file list of project ''. Projects must list all files or use an 'include' pattern.
-  File is ECMAScript module because '/Users/blakesingleton/Desktop/AIHedgeFund/packages/db/package.json' has field "type" with value "module"
 
-[31mError: error occurred in dts build
-    at Worker.<anonymous> (/Users/blakesingleton/Desktop/AIHedgeFund/node_modules/.pnpm/tsup@8.4.0_typescript@5.7.3/node_modules/tsup/dist/index.js:1541:26)
-    at Worker.emit (node:events:517:28)
-    at MessagePort.<anonymous> (node:internal/worker:256:53)
-    at [nodejs.internal.kHybridDispatch] (node:internal/event_target:786:20)
-    at exports.emitMessage (node:internal/per_context/messageport:23:28)[39m
-DTS Build error
-[41m[30m ELIFECYCLE [39m[49m [31mCommand failed with exit code 1.[39m
+> @repo/db@0.1.0 build:ts
+> tsc -p tsconfig.build.json
+
+[1G[0K[1G[0K⠙[1G[0K

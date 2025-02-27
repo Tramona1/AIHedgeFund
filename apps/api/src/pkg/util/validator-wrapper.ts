@@ -13,8 +13,9 @@ export function createValidator(location: "json" | "form" | "query" | "param" | 
       try {
         await validator(c, next);
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
         logger.error("Validation error", { 
-          error: error.message, 
+          error: errorMessage, 
           location, 
           path: c.req.path,
           method: c.req.method 

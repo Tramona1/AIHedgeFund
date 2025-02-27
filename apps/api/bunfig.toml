@@ -1,0 +1,4 @@
+[resolver]
+"@repo/db" = "../../packages/db/dist/index.js"
+"@repo/logger" = "../../packages/logger/dist/index.js"
+"@repo/id" = "../../packages/id/dist/index.js" 

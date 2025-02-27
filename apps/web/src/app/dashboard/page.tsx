@@ -3,11 +3,21 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
-import { stockUpdatesAPI, StockUpdate, userPreferencesAPI, UserPreferences, aiTriggersAPI } from "@/lib/api";
+import { 
+  stockUpdatesAPI, 
+  StockUpdate, 
+  userPreferencesAPI, 
+  UserPreferences, 
+  aiTriggersAPI,
+  economicReportsAPI,
+  interviewsAPI
+} from "@/lib/api";
 import { useUser } from "@clerk/nextjs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { EconomicReports } from "@/components/dashboard/EconomicReports";
+import { Interviews } from "@/components/dashboard/Interviews";
 
 interface Alert {
   id: string;
@@ -394,6 +404,16 @@ export default function Dashboard() {
           <div>
             {/* Test Trigger Creator */}
             <TestTriggerCreator tickers={userPreferences?.tickers} />
+            
+            {/* Economic Reports */}
+            <div className="mb-6">
+              <EconomicReports limit={3} />
+            </div>
+            
+            {/* Interviews */}
+            <div className="mb-6">
+              <Interviews limit={2} />
+            </div>
             
             {/* Alerts */}
             <Card className="shadow-md mb-6">

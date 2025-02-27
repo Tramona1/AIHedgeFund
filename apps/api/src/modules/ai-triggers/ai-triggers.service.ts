@@ -3,6 +3,7 @@ import { generateId, IDPrefix } from "@repo/id";
 import { logger } from "@repo/logger";
 import { notificationsService } from "../notifications/notifications.service";
 import { eq } from "drizzle-orm";
+import { safeEq, selectWhere } from "../../lib/db-utils";
 
 // Create a component-specific logger
 const triggerLogger = logger.child({ component: "ai-triggers-service" });
@@ -72,9 +73,9 @@ export const aiTriggersService = {
   },
   
   /**
-   * Get all AI triggers for a specific ticker
+   * Get AI triggers by ticker
    */
   async getAITriggersByTicker(ticker: string) {
-    return db.select().from(stockEvents).where(eq(stockEvents.ticker, ticker));
+    return selectWhere(stockEvents, safeEq(stockEvents.ticker, ticker));
   },
 }; 

@@ -8,9 +8,16 @@ import pandas as pd
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
+# Set up logger
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format='{"timestamp": "%(asctime)s", "level": "%(levelname)s", "component": "%(name)s", "message": "%(message)s", "metadata": %(metadata)s}')
 
+# Fix the logging format to avoid the metadata error
+logging.basicConfig(
+    level=logging.INFO, 
+    format='{"timestamp": "%(asctime)s", "level": "%(levelname)s", "component": "%(name)s", "message": "%(message)s"}'
+)
+
+# Load environment variables
 load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
@@ -82,8 +89,7 @@ class OptionFlowProcessor:
                 "timestamp": current_date.isoformat()
             }
         except Exception as e:
-            logger.error(f"Error fetching option flow data for {ticker}: {e}", 
-                        extra={"metadata": {"ticker": ticker}})
+            logger.error(f"Error fetching option flow data for {ticker}: {e}")
             return None
     
     def analyze_option_flow(self, data):
@@ -148,8 +154,7 @@ class OptionFlowProcessor:
             
             return analysis
         except Exception as e:
-            logger.error(f"Error analyzing option flow data: {e}", 
-                        extra={"metadata": {"ticker": data.get("ticker", "unknown")}})
+            logger.error(f"Error analyzing option flow data: {e}")
             return None
     
     def store_option_flow_analysis(self, analysis):
@@ -157,7 +162,7 @@ class OptionFlowProcessor:
         Store options flow analysis in Supabase database.
         """
         if not analysis:
-            return
+            return False
         
         try:
             # Check if entry for this ticker and date already exists
@@ -170,8 +175,8 @@ class OptionFlowProcessor:
             if not existing.data or len(existing.data) == 0:
                 # Insert new analysis
                 supabase.table(OPTION_FLOW_TABLE).insert(analysis).execute()
-                logger.info(f"Inserted new option flow analysis for {analysis['ticker']}", 
-                          extra={"metadata": {"ticker": analysis["ticker"]}})
+                logger.info(f"Inserted new option flow analysis for {analysis['ticker']}")
+                return True
             else:
                 # Update existing analysis
                 supabase.table(OPTION_FLOW_TABLE) \
@@ -179,31 +184,35 @@ class OptionFlowProcessor:
                     .eq("ticker", analysis["ticker"]) \
                     .eq("date", analysis["date"]) \
                     .execute()
-                logger.info(f"Updated option flow analysis for {analysis['ticker']}", 
-                          extra={"metadata": {"ticker": analysis["ticker"]}})
+                logger.info(f"Updated option flow analysis for {analysis['ticker']}")
+                return True
+            
         except Exception as e:
-            logger.error(f"Error storing option flow analysis: {e}", 
-                        extra={"metadata": {"ticker": analysis.get("ticker", "unknown")}})
+            logger.error(f"Error storing option flow analysis: {e}")
+            return False
     
     async def run(self, tickers):
         """
         Process options flow data for a list of tickers.
         """
+        successful_tickers = 0
+        
         for ticker in tickers:
-            logger.info(f"Processing option flow data for {ticker}", 
-                       extra={"metadata": {"ticker": ticker}})
+            logger.info(f"Processing option flow data for {ticker}")
             
             data = await self.fetch_option_flow(ticker)
             if data:
                 analysis = self.analyze_option_flow(data)
                 if analysis:
-                    self.store_option_flow_analysis(analysis)
+                    success = self.store_option_flow_analysis(analysis)
+                    if success:
+                        successful_tickers += 1
             
             # Avoid rate limiting
             await asyncio.sleep(1)
         
-        logger.info(f"Completed option flow processing for {len(tickers)} tickers", 
-                   extra={"metadata": {"count": len(tickers)}})
+        logger.info(f"Completed option flow processing: {successful_tickers}/{len(tickers)} tickers successfully processed")
+        return successful_tickers
     
     def close(self):
         """Close the session."""
@@ -216,7 +225,14 @@ async def main():
         # Example list of tickers to process
         # In practice, you might get this from database or configuration
         tickers = ["AAPL", "MSFT", "NVDA", "TSLA", "AMZN"]
-        await processor.run(tickers)
+        successful_count = await processor.run(tickers)
+        print(f"\n✅ Successfully processed option flow data for {successful_count}/{len(tickers)} tickers")
+        if successful_count == len(tickers):
+            print("✅ All tickers were processed successfully!")
+        elif successful_count > 0:
+            print("⚠️ Some tickers were successfully processed, but there were issues with others.")
+        else:
+            print("❌ Failed to process any tickers. Check the logs for details.")
     finally:
         processor.close()
 

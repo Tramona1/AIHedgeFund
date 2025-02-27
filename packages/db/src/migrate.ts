@@ -1,11 +1,21 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
-import { logger } from "@repo/logger";
+
+// Simple logging function instead of using @repo/logger
+function log(level: 'info' | 'error', message: string, metadata?: any) {
+  console.log(JSON.stringify({
+    timestamp: new Date().toISOString(),
+    level,
+    component: 'db-migrate',
+    message,
+    metadata: metadata || {}
+  }));
+}
 
 // Create a migration function
 async function runMigration() {
-  logger.info("Starting database migration");
+  log('info', "Starting database migration");
 
   try {
     // Get database URL from environment variables
@@ -24,17 +34,22 @@ async function runMigration() {
     // Run migrations from the "migrations" folder
     await migrate(db, { migrationsFolder: "drizzle" });
     
-    logger.info("Migration completed successfully");
+    log('info', "Migration completed successfully");
     
     // Close the connection
     await migrationClient.end();
     
     process.exit(0);
   } catch (error) {
-    logger.error("Migration failed", { error });
+    log('error', "Migration failed", { error: error instanceof Error ? error.message : String(error) });
     process.exit(1);
   }
 }
 
 // Run the migration
-runMigration(); 
+if (require.main === module) {
+  runMigration();
+}
+
+// Export for programmatic usage
+export { runMigration }; 

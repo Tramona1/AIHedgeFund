@@ -13,6 +13,10 @@ import twitter_scraper
 import dark_pool_processor
 import option_flow_processor
 import holdings_change_detector
+import fundamental_analyzer
+import economic_indicator_fetcher
+import economic_report_fetcher
+import interview_processor
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format='{"timestamp": "%(asctime)s", "level": "%(levelname)s", "component": "%(name)s", "message": "%(message)s", "metadata": %(metadata)s}')
@@ -30,19 +34,33 @@ class Scheduler:
         tickers_env = os.getenv("TRACKED_TICKERS")
         self.tickers = tickers_env.split(",") if tickers_env else DEFAULT_TICKERS
         
-        logger.info(f"Scheduler initialized with {len(self.tickers)} tickers", 
-                   extra={"metadata": {"tickers": self.tickers}})
+        # Get user type (trader or investor) or default to both
+        self.user_type = os.getenv("USER_TYPE", "both").lower()
+        
+        logger.info(f"Scheduler initialized with {len(self.tickers)} tickers and user type: {self.user_type}", 
+                   extra={"metadata": {"tickers": self.tickers, "user_type": self.user_type}})
     
-    async def run_market_data(self):
-        """Run the market data fetcher."""
+    async def run_market_data_trader(self):
+        """Run the market data fetcher for traders (frequent updates)."""
         try:
-            logger.info("Starting market data fetcher job", extra={"metadata": {}})
+            logger.info("Starting market data fetcher job for traders", extra={"metadata": {}})
             fetcher = market_data_fetcher.MarketDataFetcher()
-            await fetcher.run(self.tickers)
+            await fetcher.run_trader_data(self.tickers)
             await fetcher.close()
-            logger.info("Completed market data fetcher job", extra={"metadata": {}})
+            logger.info("Completed market data fetcher job for traders", extra={"metadata": {}})
         except Exception as e:
-            logger.error(f"Error in market data fetcher job: {e}", extra={"metadata": {}})
+            logger.error(f"Error in market data fetcher job for traders: {e}", extra={"metadata": {}})
+    
+    async def run_market_data_investor(self):
+        """Run the market data fetcher for investors (less frequent updates)."""
+        try:
+            logger.info("Starting market data fetcher job for investors", extra={"metadata": {}})
+            fetcher = market_data_fetcher.MarketDataFetcher()
+            await fetcher.run_investor_data(self.tickers)
+            await fetcher.close()
+            logger.info("Completed market data fetcher job for investors", extra={"metadata": {}})
+        except Exception as e:
+            logger.error(f"Error in market data fetcher job for investors: {e}", extra={"metadata": {}})
     
     async def run_sec_edgar(self):
         """Run the SEC EDGAR fetcher."""
@@ -55,15 +73,16 @@ class Scheduler:
         except Exception as e:
             logger.error(f"Error in SEC EDGAR fetcher job: {e}", extra={"metadata": {}})
     
-    async def run_twitter_scraper(self):
-        """Run the Twitter scraper."""
-        try:
-            logger.info("Starting Twitter scraper job", extra={"metadata": {}})
-            scraper = twitter_scraper.TwitterScraper()
-            await scraper.run()
-            logger.info("Completed Twitter scraper job", extra={"metadata": {}})
-        except Exception as e:
-            logger.error(f"Error in Twitter scraper job: {e}", extra={"metadata": {}})
+    # Commented out Twitter scraper function
+    # async def run_twitter_scraper(self):
+    #     """Run the Twitter scraper."""
+    #     try:
+    #         logger.info("Starting Twitter scraper job", extra={"metadata": {}})
+    #         scraper = twitter_scraper.TwitterScraper()
+    #         await scraper.run()
+    #         logger.info("Completed Twitter scraper job", extra={"metadata": {}})
+    #     except Exception as e:
+    #         logger.error(f"Error in Twitter scraper job: {e}", extra={"metadata": {}})
     
     async def run_dark_pool_processor(self):
         """Run the dark pool data processor."""
@@ -98,27 +117,75 @@ class Scheduler:
         except Exception as e:
             logger.error(f"Error in holdings change detector job: {e}", extra={"metadata": {}})
     
+    def run_fundamental_analyzer(self):
+        """Run the fundamental analyzer (synchronous)."""
+        try:
+            logger.info("Starting fundamental analyzer job", extra={"metadata": {}})
+            analyzer = fundamental_analyzer.FundamentalAnalyzer()
+            analyzer.run(self.tickers)
+            logger.info("Completed fundamental analyzer job", extra={"metadata": {}})
+        except Exception as e:
+            logger.error(f"Error in fundamental analyzer job: {e}", extra={"metadata": {}})
+    
+    def run_economic_indicator_fetcher(self):
+        """Run the economic indicator fetcher (synchronous)."""
+        try:
+            logger.info("Starting economic indicator fetcher job", extra={"metadata": {}})
+            fetcher = economic_indicator_fetcher.EconomicIndicatorFetcher()
+            fetcher.run()
+            logger.info("Completed economic indicator fetcher job", extra={"metadata": {}})
+        except Exception as e:
+            logger.error(f"Error in economic indicator fetcher job: {e}", extra={"metadata": {}})
+    
+    def run_economic_report_fetcher(self):
+        """Run the economic report fetcher (synchronous)."""
+        try:
+            logger.info("Starting economic report fetcher job", extra={"metadata": {}})
+            fetcher = economic_report_fetcher.EconomicReportFetcher()
+            fetcher.run()
+            logger.info("Completed economic report fetcher job", extra={"metadata": {}})
+        except Exception as e:
+            logger.error(f"Error in economic report fetcher job: {e}", extra={"metadata": {}})
+    
+    def run_interview_processor(self):
+        """Run the interview processor (synchronous)."""
+        try:
+            # List of interview URLs to process
+            # These could be stored in a config file or database in the future
+            interview_urls = os.getenv("INTERVIEW_URLS", "").split(",")
+            if not interview_urls or (len(interview_urls) == 1 and not interview_urls[0]):
+                logger.info("No interview URLs configured", extra={"metadata": {}})
+                return
+                
+            logger.info("Starting interview processor job", extra={"metadata": {}})
+            processor = interview_processor.InterviewProcessor()
+            processor.run(interview_urls)
+            logger.info("Completed interview processor job", extra={"metadata": {}})
+        except Exception as e:
+            logger.error(f"Error in interview processor job: {e}", extra={"metadata": {}})
+    
     def schedule_jobs(self):
-        """Schedule all data pipeline jobs."""
-        # Market data every 15 minutes during trading hours
-        schedule.every(15).minutes.do(self._run_async_job, self.run_market_data)
+        """Schedule all data pipeline jobs based on user type."""
+        if self.user_type == "trader" or self.user_type == "both":
+            # Trader data - more frequent updates
+            schedule.every(15).minutes.do(self._run_async_job, self.run_market_data_trader)
+            # Commented out Twitter scraper schedule
+            # schedule.every(30).minutes.do(self._run_async_job, self.run_twitter_scraper)
+            schedule.every(1).hour.do(self._run_async_job, self.run_option_flow_processor)
+            schedule.every(2).hours.do(self._run_async_job, self.run_dark_pool_processor)
+            schedule.every(15).minutes.do(self.run_economic_report_fetcher)
+            logger.info("Trader data jobs scheduled", extra={"metadata": {}})
         
-        # SEC EDGAR fetcher once per hour
-        schedule.every(1).hour.do(self._run_async_job, self.run_sec_edgar)
-        
-        # Twitter scraper every 30 minutes
-        schedule.every(30).minutes.do(self._run_async_job, self.run_twitter_scraper)
-        
-        # Dark pool processor every 2 hours
-        schedule.every(2).hours.do(self._run_async_job, self.run_dark_pool_processor)
-        
-        # Option flow processor every 2 hours
-        schedule.every(2).hours.do(self._run_async_job, self.run_option_flow_processor)
-        
-        # Holdings change detector every 4 hours
-        schedule.every(4).hours.do(self._run_async_job, self.run_holdings_change_detector)
-        
-        logger.info("All jobs scheduled", extra={"metadata": {}})
+        if self.user_type == "investor" or self.user_type == "both":
+            # Investor data - less frequent updates
+            schedule.every(4).hours.do(self._run_async_job, self.run_market_data_investor)
+            schedule.every(4).hours.do(self._run_async_job, self.run_sec_edgar)
+            schedule.every(4).hours.do(self._run_async_job, self.run_holdings_change_detector)
+            schedule.every(12).hours.do(self.run_fundamental_analyzer)
+            schedule.every(6).hours.do(self.run_economic_indicator_fetcher)
+            schedule.every(4).hours.do(self.run_economic_report_fetcher)
+            schedule.every(12).hours.do(self.run_interview_processor)
+            logger.info("Investor data jobs scheduled", extra={"metadata": {}})
     
     def _run_async_job(self, job_func):
         """
@@ -133,19 +200,39 @@ class Scheduler:
             loop.close()
     
     async def run_all_now(self):
-        """Run all data pipeline jobs immediately."""
+        """Run all data pipeline jobs immediately based on user type."""
         logger.info("Running all jobs immediately", extra={"metadata": {}})
         
-        tasks = [
-            self.run_market_data(),
-            self.run_sec_edgar(),
-            self.run_twitter_scraper(),
-            self.run_dark_pool_processor(),
-            self.run_option_flow_processor(),
-            self.run_holdings_change_detector()
-        ]
+        tasks = []
+        
+        if self.user_type == "trader" or self.user_type == "both":
+            # Trader data tasks
+            tasks.extend([
+                self.run_market_data_trader(),
+                # self.run_twitter_scraper(),
+                self.run_option_flow_processor(),
+                self.run_dark_pool_processor()
+            ])
+        
+        if self.user_type == "investor" or self.user_type == "both":
+            # Investor data tasks
+            tasks.extend([
+                self.run_market_data_investor(),
+                self.run_sec_edgar(),
+                self.run_holdings_change_detector()
+            ])
         
         await asyncio.gather(*tasks)
+        
+        # Run synchronous tasks
+        if self.user_type == "investor" or self.user_type == "both":
+            self.run_fundamental_analyzer()
+            self.run_economic_indicator_fetcher()
+            self.run_economic_report_fetcher()
+            self.run_interview_processor()
+        elif self.user_type == "trader":
+            self.run_economic_report_fetcher()
+        
         logger.info("Completed running all jobs", extra={"metadata": {}})
     
     def start(self):

@@ -59,6 +59,34 @@ export interface UserPreferences {
   updatedAt: string;
 }
 
+export interface EconomicReport {
+  id: string;
+  source: string;
+  filename: string;
+  original_filename?: string;
+  timestamp: string;
+  subject?: string;
+  url?: string;
+  summary?: string;
+  file_url: string;
+  category: string;
+  from_email?: string;
+  processed_at: string;
+}
+
+export interface Interview {
+  id: string;
+  video_id: string;
+  video_url: string;
+  title?: string;
+  speaker?: string;
+  timestamp: string;
+  summary?: string;
+  highlights?: Record<string, any>;
+  transcript_url?: string;
+  processed_at: string;
+}
+
 /**
  * Stock Updates API
  */
@@ -144,4 +172,62 @@ export const aiTriggersAPI = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+};
+
+/**
+ * Economic Reports API
+ */
+export const economicReportsAPI = {
+  /**
+   * Get recent economic reports
+   */
+  getRecent: (limit = 10) => 
+    fetchAPI<{ data: EconomicReport[] }>(`/api/economic-reports/recent?limit=${limit}`),
+    
+  /**
+   * Get economic reports by source
+   */
+  getBySource: (source: string, limit = 10) => 
+    fetchAPI<{ data: EconomicReport[] }>(`/api/economic-reports/recent?source=${source}&limit=${limit}`),
+    
+  /**
+   * Get economic reports by category
+   */
+  getByCategory: (category: string, limit = 10) => 
+    fetchAPI<{ data: EconomicReport[] }>(`/api/economic-reports/recent?category=${category}&limit=${limit}`),
+    
+  /**
+   * Get available economic report sources
+   */
+  getSources: () => 
+    fetchAPI<{ data: string[] }>('/api/economic-reports/sources'),
+    
+  /**
+   * Get available economic report categories
+   */
+  getCategories: () => 
+    fetchAPI<{ data: string[] }>('/api/economic-reports/categories'),
+};
+
+/**
+ * Interviews API
+ */
+export const interviewsAPI = {
+  /**
+   * Get recent interviews
+   */
+  getRecent: (limit = 10) => 
+    fetchAPI<{ data: Interview[] }>(`/api/interviews/recent?limit=${limit}`),
+    
+  /**
+   * Get interviews by speaker
+   */
+  getBySpeaker: (speaker: string, limit = 10) => 
+    fetchAPI<{ data: Interview[] }>(`/api/interviews/recent?speaker=${speaker}&limit=${limit}`),
+    
+  /**
+   * Get available interview speakers
+   */
+  getSpeakers: () => 
+    fetchAPI<{ data: string[] }>('/api/interviews/speakers'),
 }; 

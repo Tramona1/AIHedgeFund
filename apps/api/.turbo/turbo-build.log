@@ -1,0 +1,9 @@
+
+
+> api@0.1.0 build /Users/blakesingleton/Desktop/AIHedgeFund/apps/api
+> bun build src/index.ts --outdir ./dist --target bun --external @repo/*
+
+
+  ./index.js  660.50 KB
+
+[0m[2m[[1m58ms[0m[2m][0m [32mbundle[0m 138 modules

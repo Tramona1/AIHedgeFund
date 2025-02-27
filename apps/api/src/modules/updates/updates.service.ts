@@ -1,26 +1,24 @@
-import { db, stockUpdates, NewStockUpdate } from "@repo/db";
+import { db, stockUpdates, type NewStockUpdate } from "@repo/db";
 import { generateId, IDPrefix } from "@repo/id";
-import { logger } from "@repo/logger";
-import { eq } from "drizzle-orm";
+import { createComponentLogger } from "@repo/logger";
+import { safeEq, selectWhere } from "../../lib/db-utils.js";
 
 // Create a component-specific logger
-const updateLogger = logger.child({ component: "updates-service" });
+const updateLogger = createComponentLogger("updates-service");
 
 export const updatesService = {
   /**
-   * Create a new stock update
+   * Create a new stock update and store it in the database
    */
   async createStockUpdate(data: Omit<NewStockUpdate, "id" | "createdAt">): Promise<string> {
     try {
-      updateLogger.info("Creating stock update", { ticker: data.ticker, eventType: data.eventType });
-      
       const id = generateId(IDPrefix.STOCK_UPDATE);
+      const now = new Date();
       
-      // Insert the stock update
       await db.insert(stockUpdates).values({
         id,
         ...data,
-        createdAt: new Date(),
+        createdAt: now,
       });
       
       updateLogger.info("Created stock update", { id, ticker: data.ticker });
@@ -41,10 +39,11 @@ export const updatesService = {
    * Get stock updates by ticker
    */
   async getStockUpdatesByTicker(ticker: string) {
-    return db.select()
-      .from(stockUpdates)
-      .where(eq(stockUpdates.ticker, ticker))
-      .orderBy(stockUpdates.createdAt);
+    return selectWhere(
+      stockUpdates,
+      safeEq(stockUpdates.ticker, ticker),
+      stockUpdates.createdAt
+    );
   },
   
   /**
