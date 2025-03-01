@@ -1,31 +1,22 @@
-import * as React from "react";
-import { cn } from "@/lib/utils";
+import type React from "react"
+import { cn } from "@/lib/utils"
 
-export interface SectionProps extends React.HTMLAttributes<HTMLElement> {
-  variant?: "default" | "muted" | "primary" | "grid";
+interface SectionProps extends React.HTMLAttributes<HTMLElement> {
+  variant?: "default" | "muted" | "primary" | "grid"
+  as?: React.ElementType
 }
 
-export function Section({ 
-  className, 
-  variant = "default", 
-  children, 
-  ...props 
-}: SectionProps) {
+export function Section({ variant = "default", as: Component = "section", className, ...props }: SectionProps) {
   return (
-    <section
+    <Component
       className={cn(
-        "py-20",
-        {
-          "bg-[hsl(var(--background))]": variant === "default",
-          "bg-[hsl(var(--muted))] dark:bg-gray-900": variant === "muted",
-          "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]": variant === "primary",
-          "bg-grid-pattern bg-white dark:bg-gray-950 dark:bg-opacity-90": variant === "grid",
-        },
-        className
+        variant === "default" && "bg-background",
+        variant === "muted" && "bg-muted/50",
+        variant === "primary" && "bg-primary text-primary-foreground",
+        variant === "grid" && "bg-background relative",
+        className,
       )}
       {...props}
-    >
-      {children}
-    </section>
-  );
+    />
+  )
 } 

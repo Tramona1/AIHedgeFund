@@ -52,17 +52,11 @@ class MarketDataFetcher:
         self.last_request_time = 0
         self.min_request_interval = 0.5  # seconds between API requests
         self.alpha_vantage_url = "https://www.alphavantage.co/query"
-        self.session = None
         logger.info("MarketDataFetcher initialized")
-
-    async def close(self):
-        """Close any open resources"""
-        if self.session and hasattr(self.session, 'close'):
-            await self.session.close()
 
     def fetch_with_rate_limit(self, url, params=None):
         """Make API requests with rate limiting to respect API provider limits"""
-        # If in demo mode, generate mock data instead of real API calls
+        # If we're in demo mode, skip the actual API call
         if DEMO_MODE:
             logger.info(f"DEMO MODE: Simulating API call to {url} with params: {params}")
             return self._generate_demo_data(params.get("function") if params else None, params)
@@ -78,26 +72,31 @@ class MarketDataFetcher:
         
         # Make the request
         try:
+            logger.info(f"Making request to: {url}?{'&'.join([f'{k}={v}' for k, v in params.items() if k != 'apikey'])}")
             response = requests.get(url, params=params)
+            logger.info(f"Response Status: {response.status_code}")
+            
+            # Log the first part of the response for debugging
+            if hasattr(response, 'text'):
+                logger.info(f"Response text preview: {response.text[:500]}...")
+                
+            response.raise_for_status()  # Raise exception for 4XX/5XX responses
             
             # Update last request time
             self.last_request_time = time.time()
             
-            # Check for rate limit error in Alpha Vantage
-            if response.status_code == 200 and "Note" in response.text and ("API call frequency" in response.text or "Thank you for using Alpha Vantage" in response.text):
-                logger.warning("API rate limit reached. Consider enabling DEMO_MODE for testing.")
-                if DEMO_MODE:
-                    logger.info("Falling back to demo data due to rate limit")
-                    return self._generate_demo_data(params.get("function") if params else None, params)
-            
-            # Check for other errors
-            if response.status_code != 200:
-                logger.error(f"API request failed with status code {response.status_code}: {response.text}")
-                return None
-                
             # Try to parse as JSON
             try:
-                return response.json()
+                data = response.json()
+                
+                # Check for API rate limit message
+                if "Information" in data and "rate limit" in data.get("Information", "").lower():
+                    logger.warning("API rate limit reached. Consider enabling DEMO_MODE for testing.")
+                    if DEMO_MODE:
+                        logger.info("Falling back to demo data due to rate limiting")
+                        return self._generate_demo_data(params.get("function") if params else None, params)
+                    
+                return data
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse response as JSON: {e}")
                 # Return the text response for endpoints that don't return JSON
@@ -204,15 +203,14 @@ class MarketDataFetcher:
                 }
             }
         elif function_name == "EARNINGS_CALENDAR":
-            # For the earnings calendar, which returns CSV data
-            csv_data = "symbol,name,reportDate,fiscalDateEnding,estimate,currency\n"
-            csv_data += "DEMO1,Demo Company 1,2023-04-25,2023-03-31,2.35,USD\n"
-            csv_data += "DEMO2,Demo Company 2,2023-04-27,2023-03-31,1.75,USD\n"
-            csv_data += "DEMO3,Demo Company 3,2023-05-01,2023-03-31,0.95,USD\n"
-            return {"text": csv_data}
+            # For EARNINGS_CALENDAR, we would normally return CSV, but for demo we'll return a structure that
+            # our code can understand when it tries to convert to a DataFrame
+            return {
+                "text": "symbol,name,reportDate,fiscalDateEnding,estimate,currency\nAAPL,Apple Inc,2025-04-30,2025-03-31,1.85,USD\nMSFT,Microsoft Corporation,2025-04-28,2025-03-31,2.45,USD\nGOOGL,Alphabet Inc,2025-04-27,2025-03-31,1.65,USD"
+            }
         else:
-            # Generic response for unknown function
-            return {"demo_data": "true", "function": function_name, "message": "Using demo data"}
+            # Generic demo data
+            return {"demo": "data", "timestamp": now.isoformat(), "message": f"Demo data for {function_name}"}
 
     def fetch_market_data(self, ticker):
         """Fetch market data from Alpha Vantage API"""
@@ -229,7 +227,9 @@ class MarketDataFetcher:
         data = self.fetch_with_rate_limit(self.alpha_vantage_url, params)
         
         if not data or "Time Series (Daily)" not in data:
-            logger.error(f"Failed to fetch market data for {ticker}", extra={"metadata": {"ticker": ticker}})
+            logger.error(f"Failed to fetch market data for {ticker}")
+            if data:
+                logger.debug(f"Response content: {json.dumps(data)[:200]}...")
             return None
         
         # Get the most recent day's data
@@ -249,7 +249,7 @@ class MarketDataFetcher:
             price_change = 0
             price_change_pct = 0
         
-        # Format the result
+        # Format the result without technical indicators
         result = {
             "ticker": ticker,
             "price": float(latest_data['4. close']),
@@ -279,7 +279,7 @@ class MarketDataFetcher:
         data = self.fetch_with_rate_limit(self.alpha_vantage_url, params)
         
         if not data:
-            logger.error("Failed to fetch top gainers and losers", extra={"metadata": {}})
+            logger.error("Failed to fetch top gainers and losers")
             return None
         
         # Process the data
@@ -290,33 +290,42 @@ class MarketDataFetcher:
         # Process each category to extract key information
         processed_gainers = []
         for stock in top_gainers:
-            processed_gainers.append({
-                "ticker": stock.get("ticker"),
-                "price": float(stock.get("price", 0)),
-                "change_amount": float(stock.get("change_amount", 0)),
-                "change_percentage": float(stock.get("change_percentage", "0").strip('%')),
-                "volume": int(stock.get("volume", 0))
-            })
+            try:
+                processed_gainers.append({
+                    "ticker": stock.get("ticker"),
+                    "price": float(stock.get("price", 0)),
+                    "change_amount": float(stock.get("change_amount", 0)),
+                    "change_percentage": float(stock.get("change_percentage", "0").strip('%')),
+                    "volume": int(stock.get("volume", 0))
+                })
+            except (ValueError, TypeError) as e:
+                logger.error(f"Error processing gainer stock data: {e}, stock: {stock}")
         
         processed_losers = []
         for stock in top_losers:
-            processed_losers.append({
-                "ticker": stock.get("ticker"),
-                "price": float(stock.get("price", 0)),
-                "change_amount": float(stock.get("change_amount", 0)),
-                "change_percentage": float(stock.get("change_percentage", "0").strip('%')),
-                "volume": int(stock.get("volume", 0))
-            })
+            try:
+                processed_losers.append({
+                    "ticker": stock.get("ticker"),
+                    "price": float(stock.get("price", 0)),
+                    "change_amount": float(stock.get("change_amount", 0)),
+                    "change_percentage": float(stock.get("change_percentage", "0").strip('%')),
+                    "volume": int(stock.get("volume", 0))
+                })
+            except (ValueError, TypeError) as e:
+                logger.error(f"Error processing loser stock data: {e}, stock: {stock}")
         
         processed_active = []
         for stock in most_active:
-            processed_active.append({
-                "ticker": stock.get("ticker"),
-                "price": float(stock.get("price", 0)),
-                "change_amount": float(stock.get("change_amount", 0)),
-                "change_percentage": float(stock.get("change_percentage", "0").strip('%')),
-                "volume": int(stock.get("volume", 0))
-            })
+            try:
+                processed_active.append({
+                    "ticker": stock.get("ticker"),
+                    "price": float(stock.get("price", 0)),
+                    "change_amount": float(stock.get("change_amount", 0)),
+                    "change_percentage": float(stock.get("change_percentage", "0").strip('%')),
+                    "volume": int(stock.get("volume", 0))
+                })
+            except (ValueError, TypeError) as e:
+                logger.error(f"Error processing active stock data: {e}, stock: {stock}")
         
         # Combine the results
         result = {
@@ -342,41 +351,49 @@ class MarketDataFetcher:
         }
         
         # This endpoint returns CSV data, not JSON
-        response_data = self.fetch_with_rate_limit(self.alpha_vantage_url, params)
+        current_time = time.time()
+        time_since_last_request = current_time - self.last_request_time
         
-        if not response_data:
-            logger.error("Failed to fetch earnings calendar")
-            return None
-            
+        # Rate limiting
+        if time_since_last_request < self.min_request_interval:
+            sleep_time = self.min_request_interval - time_since_last_request
+            logger.debug(f"Rate limiting: sleeping for {sleep_time:.2f} seconds")
+            time.sleep(sleep_time)
+        
+        # Make the request
         try:
-            # Handle CSV data
-            if "text" in response_data:
-                csv_text = response_data["text"]
-                # Use io.StringIO as a file-like object
-                csv_io = io.StringIO(csv_text)
-                df = pd.read_csv(csv_io)
-            else:
-                logger.error("Unexpected response format for earnings calendar")
-                return None
-                
+            response = requests.get(self.alpha_vantage_url, params=params)
+            response.raise_for_status()  # Raise exception for 4XX/5XX responses
+            
+            # Update last request time
+            self.last_request_time = time.time()
+            
+            # Use io.StringIO to parse CSV (fixed for Python 3.13)
+            csv_data = io.StringIO(response.text)
+            
+            # Parse CSV data
+            df = pd.read_csv(csv_data)
+            
             # Format the results for insertion
             earnings = []
             for _, row in df.iterrows():
-                earnings.append({
-                    "ticker": row.get("symbol"),
-                    "company_name": row.get("name"),
-                    "report_date": row.get("reportDate"),
-                    "fiscal_date_ending": row.get("fiscalDateEnding"),
-                    "estimate": float(row.get("estimate", 0)) if pd.notna(row.get("estimate")) else None,
-                    "currency": "USD",
-                    "timestamp": datetime.now().isoformat()
-                })
+                try:
+                    earnings.append({
+                        "ticker": row.get("symbol"),
+                        "company_name": row.get("name"),
+                        "report_date": row.get("reportDate"),
+                        "fiscal_date_ending": row.get("fiscalDateEnding"),
+                        "estimate": float(row.get("estimate", 0)) if pd.notna(row.get("estimate")) else None,
+                        "currency": "USD",
+                        "timestamp": datetime.now().isoformat()
+                    })
+                except (ValueError, TypeError, AttributeError) as e:
+                    logger.error(f"Error processing earnings row: {e}, row: {row}")
             
-            logger.info(f"Successfully fetched earnings calendar: {len(earnings)} entries")
+            logger.info(f"Successfully fetched earnings data for {len(earnings)} companies")
             return earnings
-            
         except Exception as e:
-            logger.error(f"Failed to parse earnings calendar data: {e}")
+            logger.error(f"Failed to fetch earnings calendar: {e}")
             return None
 
     def fetch_digital_currency(self, symbol="BTC"):
@@ -394,49 +411,58 @@ class MarketDataFetcher:
         data = self.fetch_with_rate_limit(self.alpha_vantage_url, params)
         
         if not data or "Time Series (Digital Currency Daily)" not in data:
-            logger.error(f"Failed to fetch digital currency data for {symbol}", extra={"metadata": {"symbol": symbol}})
+            logger.error(f"Failed to fetch digital currency data for {symbol}")
+            if data:
+                logger.debug(f"Response content: {json.dumps(data)[:200]}...")
             return None
         
-        # Get the most recent day's data
-        time_series = data["Time Series (Digital Currency Daily)"]
-        latest_date = list(time_series.keys())[0]
-        latest_data = time_series[latest_date]
-        
-        # Get previous day for price change calculation
-        if len(list(time_series.keys())) > 1:
-            prev_date = list(time_series.keys())[1]
-            prev_data = time_series[prev_date]
-            prev_close = float(prev_data['4a. close (USD)'])
-            current_close = float(latest_data['4a. close (USD)'])
-            price_change = current_close - prev_close
-            price_change_pct = (price_change / prev_close) * 100
-        else:
-            price_change = 0
-            price_change_pct = 0
-        
-        # Format the result
-        result = {
-            "ticker": f"{symbol}-USD",
-            "name": data.get("Meta Data", {}).get("3. Digital Currency Name", symbol),
-            "price": float(latest_data['4a. close (USD)']),
-            "open": float(latest_data['1a. open (USD)']),
-            "high": float(latest_data['2a. high (USD)']),
-            "low": float(latest_data['3a. low (USD)']),
-            "volume": float(latest_data['5. volume']),
-            "market_cap": float(latest_data['6. market cap (USD)']),
-            "date": latest_date,
-            "price_change": price_change,
-            "price_change_pct": price_change_pct,
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        logger.info(f"Successfully fetched cryptocurrency data for {symbol}: {result['price']}")
-        return result
+        try:
+            # Get the most recent day's data
+            time_series = data["Time Series (Digital Currency Daily)"]
+            latest_date = list(time_series.keys())[0]
+            latest_data = time_series[latest_date]
+            
+            # Get previous day for price change calculation
+            if len(list(time_series.keys())) > 1:
+                prev_date = list(time_series.keys())[1]
+                prev_data = time_series[prev_date]
+                prev_close = float(prev_data['4a. close (USD)'])
+                current_close = float(latest_data['4a. close (USD)'])
+                price_change = current_close - prev_close
+                price_change_pct = (price_change / prev_close) * 100
+            else:
+                price_change = 0
+                price_change_pct = 0
+            
+            # Format the result
+            result = {
+                "ticker": f"{symbol}-USD",
+                "name": data.get("Meta Data", {}).get("3. Digital Currency Name", symbol),
+                "price": float(latest_data['4a. close (USD)']),
+                "open": float(latest_data['1a. open (USD)']),
+                "high": float(latest_data['2a. high (USD)']),
+                "low": float(latest_data['3a. low (USD)']),
+                "volume": float(latest_data['5. volume']),
+                "date": latest_date,
+                "price_change": price_change,
+                "price_change_pct": price_change_pct,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            logger.info(f"Successfully fetched cryptocurrency data for {symbol}: {result['price']}")
+            return result
+        except KeyError as e:
+            logger.error(f"KeyError processing digital currency data: {e}")
+            logger.debug(f"Digital currency data structure: {json.dumps(data)[:500]}...")
+            return None
+        except (ValueError, TypeError) as e:
+            logger.error(f"Error processing digital currency data: {e}")
+            return None
 
     def insert_data(self, table, data, id_fields=None):
         """Insert data into Supabase table"""
         if not supabase:
-            logger.error("Cannot insert data: Supabase client not initialized")
+            logger.error("Supabase client not initialized, skipping data insertion")
             return False
             
         try:
@@ -511,19 +537,22 @@ class MarketDataFetcher:
         except Exception as e:
             logger.error(f"Error in investor-frequency data collection: {e}")
             return False
-            
+
+    async def close(self):
+        """Close any resources"""
+        # Nothing to close currently
+        return True
+
     def fetch_data_only(self, symbol):
-        """Fetch data for a symbol without inserting into database (for testing)"""
+        """Fetch market data for a specific symbol without database inserts (for testing)"""
         logger.info(f"Testing market data fetch for {symbol}")
         
         result = {
             "market_data": self.fetch_market_data(symbol),
             "top_stocks": self.fetch_top_gainers_losers(),
+            "crypto": self.fetch_digital_currency("BTC") if symbol.upper() == "BTC" else None
         }
         
-        if symbol.upper() == "BTC":
-            result["crypto"] = self.fetch_digital_currency("BTC")
-            
         return result
 
 async def main():
@@ -552,10 +581,8 @@ async def main():
     if test_mode:
         logger.info("Running in TEST MODE - no data will be inserted into the database")
         # Just fetch data for AAPL and BTC as a test
-        logger.info("Testing market data fetch for AAPL")
-        fetcher.fetch_data_only("AAPL")
-        logger.info("Testing market data fetch for BTC")
-        fetcher.fetch_data_only("BTC")
+        aapl_data = fetcher.fetch_data_only("AAPL")
+        btc_data = fetcher.fetch_data_only("BTC")
         logger.info("Test mode data fetch completed")
     else:
         # Run both trader and investor frequency collections

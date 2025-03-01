@@ -45,7 +45,7 @@ class Scheduler:
         try:
             logger.info("Starting market data fetcher job for traders", extra={"metadata": {}})
             fetcher = market_data_fetcher.MarketDataFetcher()
-            await fetcher.run_trader_data(self.tickers)
+            await fetcher.run_trader(self.tickers)
             await fetcher.close()
             logger.info("Completed market data fetcher job for traders", extra={"metadata": {}})
         except Exception as e:
@@ -56,7 +56,7 @@ class Scheduler:
         try:
             logger.info("Starting market data fetcher job for investors", extra={"metadata": {}})
             fetcher = market_data_fetcher.MarketDataFetcher()
-            await fetcher.run_investor_data(self.tickers)
+            await fetcher.run_investor(self.tickers)
             await fetcher.close()
             logger.info("Completed market data fetcher job for investors", extra={"metadata": {}})
         except Exception as e:

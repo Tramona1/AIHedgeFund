@@ -3,9 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "start": "python main_scheduler.py",
-    "dev": "python main_scheduler.py --dev",
-    "test": "pytest"
+    "setup": "python3 -m venv venv && . venv/bin/activate && pip install -r requirements.txt",
+    "setup:lite": "pip3 install python-dotenv schedule",
+    "start": ". venv/bin/activate && python3 main_scheduler.py",
+    "start:lite": "python3 main_scheduler_lite.py",
+    "dev": ". venv/bin/activate && python3 main_scheduler.py --dev",
+    "dev:lite": "python3 main_scheduler_lite.py --dev",
+    "test": ". venv/bin/activate && python3 -m pytest"
   },
   "dependencies": {
     "@repo/db": "workspace:*",

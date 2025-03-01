@@ -2,11 +2,29 @@ import asyncio
 import json
 import logging
 from dotenv import load_dotenv
-from market_data_fetcher import MarketDataFetcher
+import sys
+import os
 
-# Set up logging
+# Set DEMO_MODE to True for testing
+os.environ["DEMO_MODE"] = "true"
+
+# Add the data-pipeline directory to the Python path
+sys.path.append('./apps/data-pipeline')
+
+# Set up logging with a filter to add metadata if not present
+class MetadataFilter(logging.Filter):
+    def filter(self, record):
+        if not hasattr(record, 'metadata'):
+            record.metadata = '{}'
+        return True
+
+# Configure basic logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+# Add our filter to the root logger
+logging.getLogger().addFilter(MetadataFilter())
+
+from market_data_fetcher import MarketDataFetcher
 
 # Load environment variables
 load_dotenv()
@@ -16,13 +34,16 @@ async def test_fetch_market_data():
     logger.info("Testing fetch_market_data for AAPL")
     fetcher = MarketDataFetcher()
     try:
-        data = await fetcher.fetch_market_data('AAPL')
-        print(f"\nFetched market data for AAPL: {json.dumps(data, indent=2)}")
+        # Note: fetch_market_data is not async, so don't use await
+        data = fetcher.fetch_market_data('AAPL')
+        if data:
+            print(f"\nFetched market data for AAPL: {json.dumps(data, indent=2)}")
         return data
     except Exception as e:
         logger.error(f"Error fetching market data: {e}")
         return None
     finally:
+        # Only close() is async, so we use await here
         await fetcher.close()
 
 async def test_fetch_top_gainers_losers():
@@ -30,13 +51,16 @@ async def test_fetch_top_gainers_losers():
     logger.info("Testing fetch_top_gainers_losers")
     fetcher = MarketDataFetcher()
     try:
-        data = await fetcher.fetch_top_gainers_losers()
-        print(f"\nFetched top gainers and losers: {json.dumps(data, indent=2)}")
+        # Note: fetch_top_gainers_losers is not async, so don't use await
+        data = fetcher.fetch_top_gainers_losers()
+        if data:
+            print(f"\nFetched top gainers and losers: {json.dumps(data, indent=2)}")
         return data
     except Exception as e:
         logger.error(f"Error fetching top gainers and losers: {e}")
         return None
     finally:
+        # Only close() is async, so we use await here
         await fetcher.close()
 
 async def test_fetch_digital_currency():
@@ -44,13 +68,16 @@ async def test_fetch_digital_currency():
     logger.info("Testing fetch_digital_currency for BTC")
     fetcher = MarketDataFetcher()
     try:
-        data = await fetcher.fetch_digital_currency('BTC')
-        print(f"\nFetched digital currency data for BTC: {json.dumps(data, indent=2)}")
+        # Note: fetch_digital_currency is not async, so don't use await
+        data = fetcher.fetch_digital_currency('BTC')
+        if data:
+            print(f"\nFetched digital currency data for BTC: {json.dumps(data, indent=2)}")
         return data
     except Exception as e:
         logger.error(f"Error fetching digital currency data: {e}")
         return None
     finally:
+        # Only close() is async, so we use await here
         await fetcher.close()
 
 async def main():

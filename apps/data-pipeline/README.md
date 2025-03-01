@@ -1,6 +1,75 @@
-# AI Hedge Fund Data Pipeline
+# AI Hedge Fund - Data Pipeline
 
-This directory contains the data pipeline components for the AI Hedge Fund project. These Python scripts handle data collection, processing, and analysis for various financial data sources.
+This module is responsible for fetching and processing various financial data sources including market data, SEC filings, social media mentions, and more.
+
+## Setup and Running
+
+### Quick Start with Lite Version
+The lite version has minimal dependencies and runs directly with your system Python:
+
+```bash
+# Install minimal dependencies
+pip3 install python-dotenv schedule
+
+# Run directly
+python3 main_scheduler_lite.py --dev
+
+# Or use pnpm from the project root
+pnpm run dev:lite
+
+# Or use the shell script
+./run_pipeline.sh --lite --dev
+```
+
+### Full Version Setup
+The full version uses a virtual environment and has more dependencies:
+
+```bash
+# Set up the virtual environment and install dependencies
+pnpm --filter data-pipeline run setup
+# Or manually:
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# Run with the virtual environment
+pnpm --filter data-pipeline run dev
+# Or manually:
+source venv/bin/activate
+python3 main_scheduler.py --dev
+# Or use the shell script:
+./run_pipeline.sh --dev
+```
+
+## Troubleshooting
+
+If you encounter dependency issues:
+
+1. **Try the lite version first**: Use the `--lite` flag with `run_pipeline.sh` or run `main_scheduler_lite.py` directly
+2. **Missing modules**: If you see errors about missing modules, install them individually:
+   ```
+   pip3 install <missing-module-name>
+   ```
+3. **Python version**: Some dependencies may require specific Python versions (try 3.9 to 3.11)
+
+## Available Scripts
+
+- `npm run setup`: Creates a virtual environment and installs dependencies
+- `npm run setup:lite`: Installs minimal dependencies for the lite version without venv
+- `npm run start`: Runs the full scheduler
+- `npm run start:lite`: Runs the lite version of the scheduler
+- `npm run dev`: Runs the full scheduler in development mode
+- `npm run dev:lite`: Runs the lite version in development mode
+- `npm run test`: Runs tests for the data pipeline
+
+## run_pipeline.sh
+
+This script provides a convenient way to run the data pipeline:
+
+- For lite version: `./run_pipeline.sh --lite [other args]`
+- For full version: `./run_pipeline.sh [args]`
+
+The lite version runs with system Python directly, while the full version sets up a virtual environment with more dependencies.
 
 ## Components
 
