@@ -1,0 +1,5 @@
+
+
+> @repo/db@0.1.0 lint /Users/blakesingleton/Desktop/AIHedgeFund/packages/db
+> eslint src/
+

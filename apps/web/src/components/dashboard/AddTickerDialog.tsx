@@ -28,11 +28,11 @@ const TRENDING_TICKERS = [
 
 interface AddTickerDialogProps {
   open: boolean
-  onOpenChange: (open: boolean) => void
-  onAddTicker: (symbol: string) => void
+  onOpenChangeAction: (open: boolean) => void
+  onAddTickerAction: (symbol: string) => void
 }
 
-export function AddTickerDialog({ open, onOpenChange, onAddTicker }: AddTickerDialogProps) {
+export function AddTickerDialog({ open, onOpenChangeAction, onAddTickerAction }: AddTickerDialogProps) {
   const [search, setSearch] = React.useState("")
   const [selectedTickers, setSelectedTickers] = React.useState<string[]>([])
 
@@ -67,13 +67,13 @@ export function AddTickerDialog({ open, onOpenChange, onAddTicker }: AddTickerDi
 
   const handleAddSelectedTickers = () => {
     selectedTickers.forEach(symbol => {
-      onAddTicker(symbol)
+      onAddTickerAction(symbol)
     })
-    onOpenChange(false)
+    onOpenChangeAction(false)
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChangeAction}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Add Tickers to Your Watchlist</DialogTitle>
@@ -136,7 +136,7 @@ export function AddTickerDialog({ open, onOpenChange, onAddTicker }: AddTickerDi
         <DialogFooter>
           <Button 
             variant="outline" 
-            onClick={() => onOpenChange(false)}
+            onClick={() => onOpenChangeAction(false)}
           >
             Cancel
           </Button>
