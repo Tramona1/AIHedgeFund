@@ -1,9 +1,11 @@
 "use client"
 
-import type * as React from "react"
+import { useState, useEffect } from "react"
 import { ArrowRight, Bell, Briefcase, LineChartIcon as ChartLineUp, Clock, Eye, Shield, Zap } from "lucide-react"
 import { motion } from "framer-motion"
 import Link from "next/link"
+import dynamic from 'next/dynamic'
+import { Suspense } from 'react'
 
 import { Button } from "@/components/ui/Button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card"
@@ -12,9 +14,144 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Container } from "@/components/ui/Container"
 import { Section } from "@/components/ui/Section"
 import { Badge } from "@/components/ui/Badge"
-import { TickerTape } from "@/components/ui/TickerTape"
-import { AlertCard } from "@/components/ui/AlertCard"
-import { FeatureCard } from "@/components/ui/FeatureCard"
+import { FAQ } from "@/components/FAQ"
+import { InterestForm } from "@/components/InterestForm"
+
+// Animated ticker tape component
+function MarketTicker() {
+  const tickers = [
+    { symbol: "AAPL", change: "+1.2%", color: "text-green-500" },
+    { symbol: "GOOGL", change: "+0.8%", color: "text-green-500" },
+    { symbol: "MSFT", change: "+1.5%", color: "text-green-500" },
+    { symbol: "TSLA", change: "-0.6%", color: "text-red-500" },
+    { symbol: "META", change: "+2.1%", color: "text-green-500" },
+    { symbol: "NVDA", change: "+3.2%", color: "text-green-500" },
+    { symbol: "AMZN", change: "+0.9%", color: "text-green-500" },
+    { symbol: "JPM", change: "-0.4%", color: "text-red-500" },
+  ]
+
+  return (
+    <div className="bg-gradient-to-r from-blue-50 to-white py-3 overflow-hidden border-b border-blue-100">
+      <div className="flex items-center animate-[marquee_30s_linear_infinite] whitespace-nowrap">
+        {tickers.concat(tickers).map((ticker, i) => (
+          <div key={i} className="flex items-center mx-6">
+            <span className="font-semibold text-blue-900">{ticker.symbol}</span>
+            <span className={`ml-2 ${ticker.color}`}>{ticker.change}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Alert ticker component
+function AlertTicker() {
+  const alerts = [
+    {
+      symbol: "NVDA",
+      content: "Renaissance Technologies increases position by 215%",
+      source: "SEC Filing 13F",
+      type: "Hedge Fund Activity",
+    },
+    {
+      symbol: "JPM",
+      content: "Jamie Dimon sells 33% of holdings ($58M)",
+      source: "SEC Form 4",
+      type: "Insider Trading",
+    },
+    {
+      symbol: "TSLA",
+      content: "Blackrock decreases position by 8.3%",
+      source: "13F Filing",
+      type: "Institutional Activity",
+    },
+  ]
+
+  return (
+    <div className="bg-gradient-to-r from-white to-blue-50 py-3 overflow-hidden border-b border-blue-100">
+      <div className="flex items-center animate-[marquee_40s_linear_infinite] whitespace-nowrap">
+        {alerts.concat(alerts).map((alert, i) => (
+          <div key={i} className="flex items-center mx-8">
+            <Badge variant="secondary" className="bg-blue-100 text-blue-700 mr-2">
+              {alert.type}
+            </Badge>
+            <span className="font-semibold text-blue-900">${alert.symbol}:</span>
+            <span className="ml-2 text-blue-700">{alert.content}</span>
+            <span className="ml-2 text-sm text-blue-500">via {alert.source}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Simple feature card component
+function SimpleFeatureCard({
+  icon,
+  title,
+  tagline,
+  description,
+}: {
+  icon: React.ReactNode
+  title: string
+  tagline: string
+  description: string
+}) {
+  return (
+    <motion.div whileHover={{ y: -5 }} transition={{ duration: 0.2 }}>
+      <Card className="h-full transition-all hover:shadow-md border-blue-100 overflow-hidden group">
+        <CardHeader className="pb-4">
+          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-5 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+            {icon}
+          </div>
+          <CardTitle className="text-xl text-blue-900">{title}</CardTitle>
+          <CardDescription className="text-base text-blue-700/70">{tagline}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <CardDescription className="text-base text-blue-700/70">{description}</CardDescription>
+          <div className="mt-6">
+            <Link href="/signup">
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-blue-200 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-colors"
+              >
+                Learn More
+              </Button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  )
+}
+
+// Updated alert card with modern styling
+function AlertCard({
+  ticker,
+  content,
+  author = null,
+  type,
+}: { ticker: string; content: string; author?: string | null; type: string }) {
+  return (
+    <Card className="overflow-hidden transition-all hover:shadow-lg border-blue-100">
+      <CardHeader className="pb-3 flex justify-between items-start">
+        <div className="flex items-center gap-3">
+          <div className="h-12 w-12 flex items-center justify-center bg-blue-100 rounded-full">
+            <span className="font-bold text-blue-700">${ticker}</span>
+          </div>
+          <Badge variant="secondary" className="bg-blue-50 text-blue-700 hover:bg-blue-100">
+            {type}
+          </Badge>
+        </div>
+        {author && <div className="text-xs text-muted-foreground">via {author}</div>}
+      </CardHeader>
+      <CardContent className="pt-0">
+        <p className="text-foreground/90">{content}</p>
+      </CardContent>
+    </Card>
+  )
+}
 
 const animationStyles = `
   @keyframes gradient {
@@ -28,49 +165,49 @@ const animationStyles = `
   }
 `
 
-// Testimonial component
-const Testimonial = ({ quote, author, role }: { quote: string; author: string; role: string }) => (
-  <Card className="h-full">
-    <CardContent className="pt-6">
-      <div className="text-4xl text-primary/20 mb-2">"</div>
-      <p className="text-foreground/90 italic mb-6">{quote}</p>
-      <div className="flex items-center gap-4">
-        <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
-          {author
-            .split(" ")
-            .map((word) => word[0])
-            .join("")}
-        </div>
-        <div>
-          <p className="font-semibold">{author}</p>
-          <p className="text-sm text-muted-foreground">{role}</p>
-        </div>
-      </div>
-    </CardContent>
-  </Card>
-)
-
-// Statistics card component
-const StatCard = ({ number, label }: { number: string; label: string }) => (
-  <Card className="text-center">
-    <CardContent className="pt-6">
-      <div className="text-3xl font-bold mb-2">{number}</div>
-      <div className="text-muted-foreground">{label}</div>
-    </CardContent>
-  </Card>
-)
-
 export default function Home() {
+  const [mounted, setMounted] = useState(false)
+  const [email, setEmail] = useState("")
+  const [isSubscribed, setIsSubscribed] = useState(false)
+
+  // Ensure hydration is complete
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   const handleNewsletterSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    // Add your newsletter subscription logic here
-    console.log("Newsletter subscription submitted")
+    // In a real application, you would send this to your API
+    console.log("Newsletter subscription submitted for:", email)
+    // Show success message
+    setIsSubscribed(true)
+    // Reset form
+    setEmail("")
+    // Reset success message after 3 seconds
+    setTimeout(() => {
+      setIsSubscribed(false)
+    }, 3000)
+  }
+
+  // Return simplified content for first paint
+  if (!mounted) {
+    return (
+      <div className="min-h-screen">
+        <div className="container mx-auto py-20">
+          <h1 className="text-4xl font-bold">AI Hedge Fund</h1>
+          <p className="mt-4 text-xl">Institutional intelligence for retail investors.</p>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="flex min-h-screen flex-col">
       {/* Ticker Tape */}
-      <TickerTape />
+      <>
+        <MarketTicker />
+        <AlertTicker />
+      </>
 
       {/* Hero Section */}
       <Section variant="grid" className="overflow-hidden">
@@ -83,26 +220,28 @@ export default function Home() {
               className="flex flex-col justify-center space-y-6"
             >
               <Badge variant="secondary" className="w-fit">
-                Institutional intelligence for retail investors
+                Stay Informed About What You Own—For Free
               </Badge>
 
               <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-5xl lg:text-6xl">
-                Don't Let Hedge Funds Have The
+                Get the
                 <span className="bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-transparent animate-gradient">
                   {" "}
-                  Upper Hand
-                </span>
+                  Same Insights
+                </span>{" "}
+                as Hedge Funds
               </h1>
 
               <p className="text-muted-foreground text-lg md:text-xl">
-                Get real-time, personalized stock updates based on hedge fund movements, insider trading, and technical
-                signals.
+                Own a stock, some crypto, or even real estate? Sign up for our free tier and stay in the know. Big banks
+                and hedge funds have long had the upper hand with elite insights—until now. We're leveling the playing
+                field.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 pt-4">
                 <Link href="/signup">
                   <Button size="lg" className="w-full sm:w-auto">
-                    Get Started <ArrowRight className="ml-2 h-4 w-4" />
+                    Get Started Free <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </Link>
                 <Link href="/dashboard">
@@ -124,28 +263,7 @@ export default function Home() {
                 animate={{ y: [0, 10, 0] }}
                 transition={{ duration: 4, repeat: Number.POSITIVE_INFINITY, repeatType: "reverse" }}
               >
-                <Card className="w-full max-w-md relative z-10 shadow-xl border-neutral-200/50 dark:border-neutral-800/50">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <Badge variant="success">New Alert</Badge>
-                      <span className="text-sm text-muted-foreground">Just now</span>
-                    </div>
-                    <CardTitle className="text-lg mt-2">Hedge Fund Activity</CardTitle>
-                    <CardDescription className="text-base">
-                      Renaissance Technologies increases position in $NVDA by 215%
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Source: SEC Filing 13F</span>
-                      <Link href="/dashboard">
-                        <Button variant="secondary" size="sm">
-                          View Details
-                        </Button>
-                      </Link>
-                    </div>
-                  </CardContent>
-                </Card>
+                <InterestForm />
               </motion.div>
             </motion.div>
           </div>
@@ -166,47 +284,54 @@ export default function Home() {
               Your Edge in the Market
             </h2>
             <p className="mt-4 text-xl text-blue-700/80 max-w-2xl mx-auto">
-              Institutional-level intelligence, delivered when you need it.
+              Our AI digs into market data, SEC filings, and more to bring you institutional-grade insights—fast. Click
+              'Learn More' to see how each feature works.
             </p>
           </motion.div>
 
           <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-3">
-            <FeatureCard
+            <SimpleFeatureCard
               icon={<ChartLineUp className="h-8 w-8 text-blue-600" />}
               title="Real-time Analysis"
-              description="Track hedge fund movements, insider trades, and market sentiment in real-time."
+              tagline="Track hedge fund moves, insider trades, and market sentiment as it happens."
+              description="Our AI scans SEC filings, verified X posts from market influencers, and live data to flag big moves—like a hedge fund doubling its stake—that could affect your assets."
             />
-            <FeatureCard
+            <SimpleFeatureCard
               icon={<Bell className="h-8 w-8 text-blue-600" />}
               title="Personalized Alerts"
-              description="Get instant notifications about significant events affecting your portfolio."
+              tagline="Get instant notifications tailored to what you own or watch."
+              description="Set it up your way: 'Alert me if TSLA drops 5%' or 'Notify me of insider sales in VNQ.' You'll know the second something big happens."
             />
-            <FeatureCard
+            <SimpleFeatureCard
               icon={<Eye className="h-8 w-8 text-blue-600" />}
               title="Dark Pool Insights"
-              description="See large institutional trades and option flows before they impact the market."
+              tagline="Spot hidden institutional trades before they hit the market."
+              description="See large trades—like $1M+ in dark pools—that signal where the big money's heading."
             />
-            <FeatureCard
+            <SimpleFeatureCard
               icon={<Zap className="h-8 w-8 text-blue-600" />}
-              title="Lightning Fast"
-              description="Receive alerts within seconds of market events occurring."
-            />
-            <FeatureCard
-              icon={<Shield className="h-8 w-8 text-blue-600" />}
               title="Option Flow Analysis"
-              description="Track big money movements in options to identify potential market shifts."
+              tagline="Catch bullish or bearish trends in options activity."
+              description="We track hefty options trades (e.g., $100K+ premiums) to clue you in on potential price swings."
             />
-            <FeatureCard
+            <SimpleFeatureCard
+              icon={<Shield className="h-8 w-8 text-blue-600" />}
+              title="Lightning Fast"
+              tagline="Alerts hit your inbox or phone within seconds."
+              description="No delays—our system processes events in real-time so you're never behind."
+            />
+            <SimpleFeatureCard
               icon={<Clock className="h-8 w-8 text-blue-600" />}
               title="Weekly Summaries"
-              description="Get a comprehensive recap of all major market movements each week."
+              tagline="A Monday recap of what moved your markets."
+              description="Get a digest of last week's key activity—insider trades, hedge fund shifts, and more—tailored to your picks."
             />
           </div>
         </Container>
       </Section>
 
-      {/* Social Proof Section */}
-      <Section variant="muted">
+      {/* Testimonials Section */}
+      <Section className="py-20 bg-white">
         <Container>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -215,34 +340,124 @@ export default function Home() {
             transition={{ duration: 0.5 }}
             className="text-center mb-16"
           >
-            <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl">Trusted by Traders & Investors</h2>
-            <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
+            <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl text-blue-900">
+              Trusted by Traders & Investors
+            </h2>
+            <p className="mt-4 text-xl text-blue-700/80 max-w-2xl mx-auto">
               Join thousands of investors who rely on our platform for market insights
             </p>
           </motion.div>
 
-          <div className="grid gap-8 md:grid-cols-3 mb-16">
-            <StatCard number="10,000+" label="Active Users" />
-            <StatCard number="95%" label="Customer Satisfaction" />
-            <StatCard number="8,500+" label="Stocks Covered" />
+          {/* Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+            <motion.div 
+              whileInView={{ scale: [0.9, 1] }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5 }}
+              className="text-center p-6"
+            >
+              <div className="text-4xl font-bold text-blue-600 mb-2">10,000+</div>
+              <div className="text-lg text-blue-900">Active Users</div>
+            </motion.div>
+            <motion.div 
+              whileInView={{ scale: [0.9, 1] }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="text-center p-6"
+            >
+              <div className="text-4xl font-bold text-blue-600 mb-2">95%</div>
+              <div className="text-lg text-blue-900">Customer Satisfaction</div>
+            </motion.div>
+            <motion.div 
+              whileInView={{ scale: [0.9, 1] }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="text-center p-6"
+            >
+              <div className="text-4xl font-bold text-blue-600 mb-2">8,500+</div>
+              <div className="text-lg text-blue-900">Stocks Covered</div>
+            </motion.div>
           </div>
 
-          <div className="grid gap-8 md:grid-cols-3">
-            <Testimonial
-              quote="This platform gave me insights I couldn't get anywhere else. I was able to spot institutional movements before they affected my positions."
-              author="Sarah Johnson"
-              role="Day Trader"
-            />
-            <Testimonial
-              quote="The hedge fund activity alerts have completely changed how I approach my investment strategy. Worth every penny."
-              author="Michael Chen"
-              role="Portfolio Manager"
-            />
-            <Testimonial
-              quote="I've tried many services, but none offer the combination of speed and accuracy that this platform delivers."
-              author="Robert Kiyota"
-              role="Retail Investor"
-            />
+          {/* Testimonials */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <motion.div 
+              whileInView={{ y: [20, 0], opacity: [0, 1] }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5 }}
+              className="bg-blue-50 p-6 rounded-lg border border-blue-100"
+            >
+              <div className="mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-400">
+                  <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path>
+                  <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"></path>
+                </svg>
+              </div>
+              <p className="text-blue-900 mb-6">
+                "This platform gave me insights I couldn't get anywhere else. I was able to spot institutional movements before they affected my positions."
+              </p>
+              <div className="mt-auto">
+                <div className="flex items-center">
+                  <div className="bg-blue-200 text-blue-700 font-bold rounded-full w-10 h-10 flex items-center justify-center mr-3">SJ</div>
+                  <div>
+                    <div className="font-semibold text-blue-900">Sarah Johnson</div>
+                    <div className="text-sm text-blue-700">Day Trader</div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+
+            <motion.div 
+              whileInView={{ y: [20, 0], opacity: [0, 1] }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="bg-blue-50 p-6 rounded-lg border border-blue-100"
+            >
+              <div className="mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-400">
+                  <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path>
+                  <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"></path>
+                </svg>
+              </div>
+              <p className="text-blue-900 mb-6">
+                "The hedge fund activity alerts have completely changed how I approach my investment strategy. Worth every penny."
+              </p>
+              <div className="mt-auto">
+                <div className="flex items-center">
+                  <div className="bg-blue-200 text-blue-700 font-bold rounded-full w-10 h-10 flex items-center justify-center mr-3">MC</div>
+                  <div>
+                    <div className="font-semibold text-blue-900">Michael Chen</div>
+                    <div className="text-sm text-blue-700">Portfolio Manager</div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+
+            <motion.div 
+              whileInView={{ y: [20, 0], opacity: [0, 1] }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="bg-blue-50 p-6 rounded-lg border border-blue-100"
+            >
+              <div className="mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-400">
+                  <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path>
+                  <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"></path>
+                </svg>
+              </div>
+              <p className="text-blue-900 mb-6">
+                "I've tried many services, but none offer the combination of speed and accuracy that this platform delivers."
+              </p>
+              <div className="mt-auto">
+                <div className="flex items-center">
+                  <div className="bg-blue-200 text-blue-700 font-bold rounded-full w-10 h-10 flex items-center justify-center mr-3">RK</div>
+                  <div>
+                    <div className="font-semibold text-blue-900">Robert Kiyota</div>
+                    <div className="text-sm text-blue-700">Retail Investor</div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
           </div>
         </Container>
       </Section>
@@ -357,36 +572,67 @@ export default function Home() {
             </p>
           </motion.div>
 
-          <div className="grid gap-8 md:grid-cols-3">
+          <div className="grid gap-8 md:grid-cols-4">
             <motion.div whileHover={{ y: -5 }} transition={{ duration: 0.2 }}>
+              <Card className="relative h-full border-primary">
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-primary px-4 py-1 text-sm font-medium text-primary-foreground">
+                  Start Free
+                </div>
+                <CardHeader>
+                  <CardTitle>Free</CardTitle>
+                  <CardDescription>Perfect for getting started</CardDescription>
+                  <div className="mt-4 text-4xl font-bold">$0/mo</div>
+                </CardHeader>
+                <CardContent>
+                  <ul className="grid gap-4">
+                    <li className="flex items-center gap-2">
+                      <Shield className="h-4 w-4 text-primary" /> Track 3 assets
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-primary" /> Weekly summaries
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Briefcase className="h-4 w-4 text-primary" /> Basic AI insights
+                    </li>
+                  </ul>
+                  <Link href="/signup">
+                    <Button className="mt-8 w-full">Get Started</Button>
+                  </Link>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            <motion.div whileHover={{ y: -5 }} transition={{ duration: 0.2 }} className="md:col-span-2">
               <Card className="relative h-full">
                 <CardHeader>
                   <CardTitle>Basic</CardTitle>
-                  <CardDescription>Perfect for active investors</CardDescription>
+                  <CardDescription>For active investors</CardDescription>
                   <div className="mt-4 text-4xl font-bold">$29/mo</div>
                 </CardHeader>
                 <CardContent>
                   <ul className="grid gap-4">
                     <li className="flex items-center gap-2">
-                      <Shield className="h-4 w-4 text-primary" /> Weekly market summaries
+                      <Shield className="h-4 w-4 text-primary" /> Track 10 assets
                     </li>
                     <li className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-primary" /> 5 custom stock alerts
+                      <Clock className="h-4 w-4 text-primary" /> Real-time alerts
                     </li>
                     <li className="flex items-center gap-2">
-                      <Briefcase className="h-4 w-4 text-primary" /> Basic technical signals
+                      <Briefcase className="h-4 w-4 text-primary" /> Advanced AI insights
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <ChartLineUp className="h-4 w-4 text-primary" /> Basic technical signals
                     </li>
                   </ul>
-                  <Button className="mt-8 w-full">Get Started</Button>
+                  <Link href="/signup">
+                    <Button className="mt-8 w-full">Get Started</Button>
+                  </Link>
                 </CardContent>
               </Card>
             </motion.div>
 
             <motion.div whileHover={{ y: -5 }} transition={{ duration: 0.2 }}>
-              <Card className="relative h-full border-primary">
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-primary px-4 py-1 text-sm font-medium text-primary-foreground">
-                  Popular
-                </div>
+              <Card className="relative h-full">
                 <CardHeader>
                   <CardTitle>Pro</CardTitle>
                   <CardDescription>For serious traders</CardDescription>
@@ -395,45 +641,21 @@ export default function Home() {
                 <CardContent>
                   <ul className="grid gap-4">
                     <li className="flex items-center gap-2">
-                      <Zap className="h-4 w-4 text-primary" /> Real-time alerts
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Shield className="h-4 w-4 text-primary" /> Unlimited stock tracking
+                      <Zap className="h-4 w-4 text-primary" /> Unlimited tracking
                     </li>
                     <li className="flex items-center gap-2">
                       <Eye className="h-4 w-4 text-primary" /> Dark pool insights
                     </li>
                     <li className="flex items-center gap-2">
-                      <ChartLineUp className="h-4 w-4 text-primary" /> Advanced technical analysis
+                      <Shield className="h-4 w-4 text-primary" /> Options flow
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <ChartLineUp className="h-4 w-4 text-primary" /> Advanced signals
                     </li>
                   </ul>
-                  <Button className="mt-8 w-full">Get Started</Button>
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            <motion.div whileHover={{ y: -5 }} transition={{ duration: 0.2 }}>
-              <Card className="relative h-full">
-                <CardHeader>
-                  <CardTitle>Enterprise</CardTitle>
-                  <CardDescription>For institutions</CardDescription>
-                  <div className="mt-4 text-4xl font-bold">Custom</div>
-                </CardHeader>
-                <CardContent>
-                  <ul className="grid gap-4">
-                    <li className="flex items-center gap-2">
-                      <Shield className="h-4 w-4 text-primary" /> Custom integration
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-primary" /> Priority support
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Briefcase className="h-4 w-4 text-primary" /> Custom features
-                    </li>
-                  </ul>
-                  <Button variant="outline" className="mt-8 w-full">
-                    Contact Sales
-                  </Button>
+                  <Link href="/signup">
+                    <Button className="mt-8 w-full">Get Started</Button>
+                  </Link>
                 </CardContent>
               </Card>
             </motion.div>
@@ -469,9 +691,11 @@ export default function Home() {
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: 0.2 }}
             >
-              <Button size="lg" className="mt-8 bg-white text-primary hover:bg-white/90">
-                Get Started <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
+              <Link href="/signup">
+                <Button size="lg" className="mt-8 bg-white text-primary hover:bg-white/90">
+                  Get Started <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
             </motion.div>
           </div>
         </Container>
@@ -487,17 +711,25 @@ export default function Home() {
                 <p className="text-muted-foreground mb-4">
                   Subscribe to our newsletter to receive the latest market insights and product updates.
                 </p>
-                <form onSubmit={handleNewsletterSubmit} className="flex gap-2">
-                  <div className="flex-1">
-                    <input
-                      type="email"
-                      placeholder="Your email address"
-                      className="w-full rounded-md px-3 py-2 border border-input bg-background h-10"
-                      required
-                    />
+                {isSubscribed ? (
+                  <div className="bg-green-50 text-green-700 p-3 rounded-md border border-green-200 mb-2">
+                    Thanks for subscribing! You'll receive our next newsletter.
                   </div>
-                  <Button type="submit">Subscribe</Button>
-                </form>
+                ) : (
+                  <form onSubmit={handleNewsletterSubmit} className="flex gap-2">
+                    <div className="flex-1">
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="Your email address"
+                        className="w-full rounded-md px-3 py-2 border border-input bg-background h-10"
+                        required
+                      />
+                    </div>
+                    <Button type="submit">Subscribe</Button>
+                  </form>
+                )}
               </div>
               <div className="bg-primary/5 flex items-center justify-center p-6 md:p-8">
                 <div className="text-center">
@@ -515,213 +747,13 @@ export default function Home() {
         <Container className="py-16">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4">Frequently Asked Questions</h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto">Everything you need to know about our service</p>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Everything you need to know about our service
+            </p>
           </div>
-
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-xl">How are the alerts generated?</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p>
-                  Our AI system continuously monitors market data, SEC filings, options flow, and social sentiment to
-                  identify significant events that could impact stock prices.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-xl">How quickly will I receive alerts?</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p>
-                  Real-time alerts are delivered within seconds of detection. Weekly summaries are sent every Sunday
-                  evening before market open.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-xl">Can I customize which alerts I receive?</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p>
-                  Yes, Pro and Enterprise plans allow for custom alert settings based on specific stocks, sectors, event
-                  types, and significance thresholds.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-xl">How is this different from other services?</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p>
-                  We focus specifically on institutional activity and hedge fund movements, giving you insights
-                  typically only available to professional traders.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+          <FAQ />
         </Container>
       </Section>
-
-      <footer className="border-t py-12">
-        <Container>
-          <div className="grid gap-8 md:grid-cols-4">
-            <div>
-              <h3 className="font-bold text-lg mb-4">AI Hedge Fund</h3>
-              <p className="text-sm text-muted-foreground">
-                Institutional intelligence for retail investors. Level the playing field with real-time market insights.
-              </p>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">Products</h4>
-              <ul className="space-y-2 text-sm">
-                <li>
-                  <a href="#" className="text-muted-foreground hover:text-foreground">
-                    Alerts
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-muted-foreground hover:text-foreground">
-                    Dashboard
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-muted-foreground hover:text-foreground">
-                    API
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-muted-foreground hover:text-foreground">
-                    Enterprise
-                  </a>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">Resources</h4>
-              <ul className="space-y-2 text-sm">
-                <li>
-                  <a href="#" className="text-muted-foreground hover:text-foreground">
-                    Documentation
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-muted-foreground hover:text-foreground">
-                    Blog
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-muted-foreground hover:text-foreground">
-                    Support
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-muted-foreground hover:text-foreground">
-                    Pricing
-                  </a>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">Company</h4>
-              <ul className="space-y-2 text-sm">
-                <li>
-                  <a href="#" className="text-muted-foreground hover:text-foreground">
-                    About
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-muted-foreground hover:text-foreground">
-                    Careers
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-muted-foreground hover:text-foreground">
-                    Privacy
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-muted-foreground hover:text-foreground">
-                    Terms
-                  </a>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <Separator className="my-8" />
-
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-center text-sm text-muted-foreground">© 2024 AI Hedge Fund. All rights reserved.</p>
-            <div className="flex gap-4">
-              <a href="#" className="text-sm text-muted-foreground hover:text-foreground">
-                <span className="sr-only">Twitter</span>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="lucide lucide-twitter"
-                >
-                  <path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z" />
-                </svg>
-              </a>
-              <a href="#" className="text-sm text-muted-foreground hover:text-foreground">
-                <span className="sr-only">LinkedIn</span>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="lucide lucide-linkedin"
-                >
-                  <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
-                  <rect width="4" height="12" x="2" y="9" />
-                  <circle cx="4" cy="4" r="2" />
-                </svg>
-              </a>
-              <a href="#" className="text-sm text-muted-foreground hover:text-foreground">
-                <span className="sr-only">GitHub</span>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="lucide lucide-github"
-                >
-                  <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" />
-                  <path d="M9 18c-4.51 2-5-2-7-2" />
-                </svg>
-              </a>
-            </div>
-          </div>
-        </Container>
-      </footer>
     </div>
   )
 } 

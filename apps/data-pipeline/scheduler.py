@@ -18,8 +18,18 @@ import economic_indicator_fetcher
 import economic_report_fetcher
 import interview_processor
 
+# Add a filter to ensure all log records have a metadata field
+class MetadataFilter(logging.Filter):
+    def filter(self, record):
+        if not hasattr(record, 'metadata'):
+            record.metadata = '{}'
+        return True
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format='{"timestamp": "%(asctime)s", "level": "%(levelname)s", "component": "%(name)s", "message": "%(message)s", "metadata": %(metadata)s}')
+
+# Add our filter to the root logger to ensure all records have metadata
+logging.getLogger().addFilter(MetadataFilter())
 
 # Standard tickers to track
 DEFAULT_TICKERS = ["AAPL", "MSFT", "AMZN", "GOOG", "META", "NVDA", "TSLA", "AMD", "JPM", "BAC"]

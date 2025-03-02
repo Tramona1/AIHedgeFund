@@ -12,7 +12,11 @@ export default authMiddleware({
     "/about",
     "/api/economic-reports/recent",
     "/api/interviews/recent",
-    "/api/users/:userId/preferences"
+    "/api/users/:userId/preferences",
+    // Allow all static assets
+    "/_next/static/(.*)",
+    "/favicon.ico",
+    "/images/(.*)",
   ],
   async afterAuth(auth, req, evt) {
     // Handle routing based on authentication
@@ -21,14 +25,21 @@ export default authMiddleware({
       signInUrl.searchParams.set('redirect_url', req.url);
       return NextResponse.redirect(signInUrl);
     }
-    return NextResponse.next();
+    
+    // Create a new response object to ensure headers are handled properly
+    const response = NextResponse.next();
+    
+    // If you need to set headers, do it like this
+    // response.headers.set('x-custom-header', 'value');
+    
+    return response;
   }
 });
 
 export const config = {
   matcher: [
-    // Skip Next.js internals and all static files, unless found in search params
-    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    // Skip all static files except JS/CSS chunks and API routes
+    '/((?!_next/image|_next/static|_vercel|favicon.ico).*)',
     // Always run for API routes
     '/(api|trpc)(.*)',
   ],

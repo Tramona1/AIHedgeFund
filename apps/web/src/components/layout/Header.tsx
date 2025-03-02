@@ -19,18 +19,7 @@ export function Header() {
         </div>
 
         <nav className="hidden md:flex items-center space-x-8">
-          <Link href="/dashboard" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
-            Dashboard
-          </Link>
-          <Link href="/alerts" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
-            Alerts
-          </Link>
-          <Link href="/stocks" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
-            Stocks
-          </Link>
-          <Link href="/about" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
-            About
-          </Link>
+          {/* Navigation links removed as requested */}
         </nav>
 
         <div className="flex items-center space-x-4">
@@ -74,18 +63,7 @@ export function Header() {
             </SheetTrigger>
             <SheetContent side="right">
               <div className="flex flex-col gap-6 mt-6">
-                <Link href="/dashboard" className="text-xl font-medium" onClick={() => setIsOpen(false)}>
-                  Dashboard
-                </Link>
-                <Link href="/alerts" className="text-xl font-medium" onClick={() => setIsOpen(false)}>
-                  Alerts
-                </Link>
-                <Link href="/stocks" className="text-xl font-medium" onClick={() => setIsOpen(false)}>
-                  Stocks
-                </Link>
-                <Link href="/about" className="text-xl font-medium" onClick={() => setIsOpen(false)}>
-                  About
-                </Link>
+                {/* Mobile menu links removed as requested */}
                 
                 <div className="border-t pt-4 mt-2">
                   <SignedIn>
