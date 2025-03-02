@@ -1,10 +1,14 @@
-import type React from "react"
+"use client"
+
+import * as React from "react"
 import { cn } from "@/lib/utils"
 
-interface ContainerProps extends React.HTMLAttributes<HTMLDivElement> {
-  as?: React.ElementType
-}
+interface ContainerProps extends React.HTMLAttributes<HTMLDivElement> {}
 
-export function Container({ as: Component = "div", className, ...props }: ContainerProps) {
-  return <Component className={cn("container mx-auto px-4 md:px-6", className)} {...props} />
+export function Container({ className, children, ...props }: ContainerProps) {
+  return (
+    <div className={cn("container mx-auto px-4", className)} {...props}>
+      {children}
+    </div>
+  )
 } 

@@ -1,0 +1,17 @@
+                            Table "public.user_preferences"
+      Column      |            Type             | Collation | Nullable |    Default     
+------------------+-----------------------------+-----------+----------+----------------
+ id               | text                        |           | not null | 
+ user_id          | text                        |           | not null | 
+ email            | text                        |           | not null | 
+ tickers          | text[]                      |           |          | 
+ sectors          | text[]                      |           |          | 
+ trading_style    | text                        |           |          | 
+ update_frequency | text                        |           | not null | 'weekly'::text
+ created_at       | timestamp without time zone |           | not null | now()
+ updated_at       | timestamp without time zone |           | not null | now()
+ custom_triggers  | jsonb                       |           |          | 
+Indexes:
+    "user_preferences_pkey" PRIMARY KEY, btree (id)
+    "user_preferences_user_id_key" UNIQUE CONSTRAINT, btree (user_id)
+

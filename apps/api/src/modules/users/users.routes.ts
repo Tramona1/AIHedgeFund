@@ -1,8 +1,8 @@
 import { Hono } from "hono";
-import { usersService } from "./users.service";
+import { updatesService } from "../updates/updates.service.js";
 import { logger } from "@repo/logger";
-import { zValidator } from "@/pkg/util/validator-wrapper";
 import { z } from "zod";
+import { usersService } from "./users.service.js";
 
 // Create a component-specific logger
 const routeLogger = logger.child({ component: "users-routes" });
@@ -18,12 +18,28 @@ const userPreferencesSchema = z.object({
   customTriggers: z.record(z.string(), z.any()).optional(),
 });
 
+// Type for validated data
+type UserPreferencesData = z.infer<typeof userPreferencesSchema>;
+
 // Create a router for users
 export const userRoutes = new Hono()
   // POST /api/users/preferences - Create or update user preferences
-  .post("/preferences", zValidator("json", userPreferencesSchema), async (c) => {
+  .post("/preferences", async (c) => {
     try {
-      const data = c.req.valid("json");
+      // Manual validation as a workaround
+      const body = await c.req.json();
+      const validation = userPreferencesSchema.safeParse(body);
+      
+      if (!validation.success) {
+        return c.json({
+          status: "error",
+          message: "Validation failed",
+          errors: validation.error.format(),
+          code: 400
+        }, 400);
+      }
+      
+      const data = validation.data;
       
       routeLogger.info("Received user preferences update", { userId: data.userId });
       
@@ -57,17 +73,19 @@ export const userRoutes = new Hono()
       const userPreferences = await usersService.getUserPreferences(userId);
       
       if (userPreferences.length === 0) {
-        return c.json(
-          { 
-            status: "error", 
-            message: "User not found", 
-            code: 404 
-          }, 
-          404
-        );
+        // Return an empty preferences object rather than an error
+        // This avoids the "User not found" error for new users
+        routeLogger.info("No preferences found for user, returning empty preferences", { userId });
+        return c.json({ 
+          status: "success", 
+          userPreferences: null 
+        });
       }
       
-      return c.json({ userPreferences: userPreferences[0] });
+      return c.json({ 
+        status: "success", 
+        userPreferences: userPreferences[0] 
+      });
     } catch (error) {
       routeLogger.error("Error fetching user preferences", { 
         error: error instanceof Error ? error.message : String(error),
@@ -91,8 +109,8 @@ export const userRoutes = new Hono()
     try {
       routeLogger.info("Fetching all users");
       
+      // Use the real data source
       const users = await usersService.getAllUsers();
-      
       return c.json({ users });
     } catch (error) {
       routeLogger.error("Error fetching all users", { 

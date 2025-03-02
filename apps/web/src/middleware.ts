@@ -19,20 +19,31 @@ export default authMiddleware({
     "/images/(.*)",
   ],
   async afterAuth(auth, req, evt) {
-    // Handle routing based on authentication
+    // Get the pathname of the request
+    const path = req.nextUrl.pathname;
+    
+    // If the user is logged in and trying to access the home page, 
+    // redirect them to the dashboard
+    if (auth.userId && path === "/") {
+      return NextResponse.redirect(new URL('/dashboard', req.url));
+    }
+    
+    // If the user is logged in and trying to access login or signup pages,
+    // redirect them to the dashboard
+    if (auth.userId && (path === "/login" || path === "/signup")) {
+      return NextResponse.redirect(new URL('/dashboard', req.url));
+    }
+    
+    // If the user is not logged in and trying to access a protected route,
+    // redirect them to the login page
     if (!auth.userId && !auth.isPublicRoute) {
       const signInUrl = new URL('/login', req.url);
       signInUrl.searchParams.set('redirect_url', req.url);
       return NextResponse.redirect(signInUrl);
     }
     
-    // Create a new response object to ensure headers are handled properly
-    const response = NextResponse.next();
-    
-    // If you need to set headers, do it like this
-    // response.headers.set('x-custom-header', 'value');
-    
-    return response;
+    // For all other cases, proceed normally
+    return NextResponse.next();
   }
 });
 

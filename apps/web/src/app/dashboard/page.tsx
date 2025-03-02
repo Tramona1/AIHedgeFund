@@ -1,488 +1,526 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { Button } from "@/components/ui/Button";
-import { 
-  stockUpdatesAPI, 
-  StockUpdate, 
-  userPreferencesAPI, 
-  UserPreferences, 
-  aiTriggersAPI,
-  economicReportsAPI,
-  interviewsAPI
-} from "@/lib/api";
-import { useUser } from "@clerk/nextjs";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/Badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { EconomicReports } from "@/components/dashboard/EconomicReports";
-import { Interviews } from "@/components/dashboard/Interviews";
+import { motion } from "framer-motion"
+import { ArrowDown, ArrowUp, Bell, LineChart, DollarSign, Briefcase, Eye, Bot, Plus } from "lucide-react"
+import { Container } from "@/components/ui/Container"
+import { Button } from "@/components/ui/Button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
+import { Badge } from "@/components/ui/Badge"
+import { Progress } from "@/components/ui/progress"
+import { AddTickerDialog } from "@/components/dashboard/AddTickerDialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useState, useEffect } from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 
-interface Alert {
-  id: string;
-  ticker: string;
-  eventType: string;
-  message: string;
-  date: string;
+// Stock ticker data types
+export interface Ticker {
+  symbol: string;
+  price?: number;
+  change?: number;
+  volume?: string;
 }
 
-// Component to create test triggers
-function TestTriggerCreator({ tickers }: { tickers?: string[] }) {
-  const [selectedTicker, setSelectedTicker] = useState<string>("");
-  const [eventType, setEventType] = useState<string>("hedge_fund_buy");
-  const [isCreating, setIsCreating] = useState(false);
-  const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
+export interface UserState {
+  tickers: Ticker[];
+}
 
-  // Set initial ticker if available
+// Sample market intelligence data (this would come from an API in a real application)
+const hedgeFundActivity = [
+  {
+    id: 1,
+    fund: "Renaissance Technologies",
+    action: "Increases Position",
+    ticker: "NVDA",
+    details: "Added 1.2M shares worth approximately $580M",
+    timestamp: "2 hours ago",
+  },
+  {
+    id: 2,
+    fund: "Citadel",
+    action: "New Position",
+    ticker: "AAPL",
+    details: "Purchased 2.5M shares worth $450M",
+    timestamp: "4 hours ago",
+  },
+]
+
+const insiderTrading = [
+  {
+    id: 1,
+    insider: "Tim Cook",
+    role: "CEO",
+    ticker: "AAPL",
+    action: "Sold",
+    details: "100,000 shares worth $18M following vesting schedule",
+    timestamp: "4 hours ago",
+  },
+  {
+    id: 2,
+    insider: "Lisa Su",
+    role: "CEO",
+    ticker: "AMD",
+    action: "Purchased",
+    details: "25,000 shares worth $2.8M",
+    timestamp: "1 day ago",
+  },
+]
+
+const optionsFlow = [
+  {
+    id: 1,
+    ticker: "TSLA",
+    type: "PUT",
+    details: "$5M in June 2024 puts purchased at $200 strike",
+    premium: "$2.1M",
+    timestamp: "1 hour ago",
+  },
+  {
+    id: 2,
+    ticker: "NVDA",
+    type: "CALL",
+    details: "$3.2M in July 2024 calls purchased at $500 strike",
+    premium: "$1.8M",
+    timestamp: "3 hours ago",
+  },
+]
+
+const technicalSignals = [
+  {
+    id: 1,
+    ticker: "AAPL",
+    signal: "Golden Cross",
+    details: "50-day MA crosses above 200-day MA",
+    strength: "Strong Buy",
+    timestamp: "Today",
+  },
+  {
+    id: 2,
+    ticker: "MSFT",
+    signal: "RSI Oversold",
+    details: "RSI drops below 30 on 4H timeframe",
+    strength: "Buy",
+    timestamp: "Today",
+  },
+]
+
+export default function DashboardPage() {
+  const [aiChatOpen, setAiChatOpen] = useState(false)
+  const [currentContext, setCurrentContext] = useState<string>("")
+  const [addTickerOpen, setAddTickerOpen] = useState(false)
+  
+  // User state for tickers
+  const [userState, setUserState] = useState<UserState>({
+    tickers: []
+  })
+
+  // Mock ticker prices (in a real app this would be fetched from an API)
+  const getRandomPrice = () => Math.floor(Math.random() * 1000) / 10 + 50
+  const getRandomChange = () => Math.floor(Math.random() * 60) / 10 - 3
+
+  // Load user tickers from localStorage on component mount
   useEffect(() => {
-    if (tickers && tickers.length > 0 && !selectedTicker) {
-      setSelectedTicker(tickers[0]);
+    const savedState = localStorage.getItem('user_tickers')
+    if (savedState) {
+      setUserState(JSON.parse(savedState))
     }
-  }, [tickers, selectedTicker]);
+  }, [])
 
-  // Event type options
-  const eventTypes = [
-    { value: "hedge_fund_buy", label: "Hedge Fund Buy" },
-    { value: "hedge_fund_sell", label: "Hedge Fund Sell" },
-    { value: "investor_mention", label: "Investor Mention" },
-    { value: "dark_pool_buy", label: "Dark Pool Activity" },
-    { value: "option_flow", label: "Options Flow" },
-  ];
+  // Save user tickers when they change
+  useEffect(() => {
+    localStorage.setItem('user_tickers', JSON.stringify(userState))
+  }, [userState])
 
-  const handleCreateTrigger = async () => {
-    if (!selectedTicker) return;
-    
-    try {
-      setIsCreating(true);
-      setResult(null);
+  // Add a new ticker
+  const addTicker = (symbol: string) => {
+    if (!userState.tickers.some(ticker => ticker.symbol === symbol)) {
+      const newTicker: Ticker = {
+        symbol,
+        price: getRandomPrice(),
+        change: getRandomChange(),
+        volume: `${Math.floor(Math.random() * 20) + 1}.${Math.floor(Math.random() * 9)}M`
+      }
       
-      // Call the API to create a test trigger
-      const response = await aiTriggersAPI.createTestTrigger({
-        ticker: selectedTicker,
-        eventType: eventType,
-      });
-      
-      setResult({ 
-        success: true, 
-        message: `Created test alert for ${selectedTicker}. Check your email or refresh the dashboard.`
-      });
-    } catch (error) {
-      console.error("Error creating test trigger:", error);
-      setResult({ 
-        success: false, 
-        message: "Failed to create test alert. Please try again."
-      });
-    } finally {
-      setIsCreating(false);
+      setUserState(prev => ({
+        ...prev,
+        tickers: [...prev.tickers, newTicker]
+      }))
     }
-  };
+  }
 
-  // If no tickers available, show a message
-  if (!tickers || tickers.length === 0) {
-    return (
-      <Card className="shadow-md mb-6">
-        <CardHeader className="pb-2">
-          <CardTitle>Create Test Alert</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-gray-500 mb-4">You need to add tickers to your watchlist before creating test alerts.</p>
-          <Button asChild>
-            <Link href="/preferences">Add Tickers</Link>
-          </Button>
-        </CardContent>
-      </Card>
-    );
+  // Remove a ticker
+  const removeTicker = (symbol: string) => {
+    setUserState(prev => ({
+      ...prev,
+      tickers: prev.tickers.filter(ticker => ticker.symbol !== symbol)
+    }))
   }
 
   return (
-    <Card className="shadow-md mb-6">
-      <CardHeader className="pb-2">
-        <CardTitle>Create Test Alert</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Ticker</label>
-            <select
-              value={selectedTicker}
-              onChange={(e) => setSelectedTicker(e.target.value)}
-              className="w-full rounded-md border border-gray-300 p-2"
-              disabled={isCreating}
-            >
-              {tickers.map((ticker) => (
-                <option key={ticker} value={ticker}>
-                  {ticker}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium mb-1">Event Type</label>
-            <select
-              value={eventType}
-              onChange={(e) => setEventType(e.target.value)}
-              className="w-full rounded-md border border-gray-300 p-2"
-              disabled={isCreating}
-            >
-              {eventTypes.map((type) => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          <Button 
-            onClick={handleCreateTrigger} 
-            disabled={isCreating || !selectedTicker}
-            className="w-full"
-          >
-            {isCreating ? "Creating..." : "Create Test Alert"}
-          </Button>
-          
-          {result && (
-            <div className={`p-3 rounded-md ${
-              result.success ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-            }`}>
-              {result.message}
+    <div className="min-h-screen bg-background">
+      {/* Market Indicators */}
+      <div className="border-b bg-card">
+        <Container>
+          <div className="grid gap-4 py-4 md:grid-cols-3">
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Buffett Indicator</span>
+                <span className="text-sm text-muted-foreground">150%</span>
+              </div>
+              <Progress value={75} className="h-2" />
+              <span className="text-xs text-muted-foreground">Market Overvalued</span>
             </div>
-          )}
-          
-          <p className="text-xs text-gray-500 mt-2">
-            This will create a simulated stock event for your selected ticker and send a notification
-            based on your preferences. Use this to test how the system works.
-          </p>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
 
-export default function Dashboard() {
-  const [stockUpdates, setStockUpdates] = useState<StockUpdate[]>([]);
-  const [recentAlerts, setRecentAlerts] = useState<Alert[]>([]);
-  const [userPreferences, setUserPreferences] = useState<UserPreferences | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
-  const { isLoaded, user } = useUser();
-  
-  // Format the event type for display
-  const formatEventType = (type: string) => {
-    return type.replace(/_/g, ' ').split(' ').map(word => 
-      word.charAt(0).toUpperCase() + word.slice(1)
-    ).join(' ');
-  };
-  
-  // Get the badge color based on event type
-  const getEventBadgeColor = (type: string) => {
-    switch(type) {
-      case 'hedge_fund_buy':
-        return 'bg-green-100 text-green-800';
-      case 'hedge_fund_sell':
-        return 'bg-red-100 text-red-800';
-      case 'investor_mention':
-        return 'bg-blue-100 text-blue-800';
-      case 'option_flow':
-        return 'bg-purple-100 text-purple-800';
-      case 'dark_pool_buy':
-        return 'bg-indigo-100 text-indigo-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Fear & Greed Index</span>
+                <span className="text-sm text-muted-foreground">75</span>
+              </div>
+              <Progress value={75} className="h-2" />
+              <span className="text-xs text-muted-foreground">Extreme Greed</span>
+            </div>
 
-  // Function to refresh data
-  const refreshData = async () => {
-    try {
-      if (!isLoaded || !user) {
-        return; // Wait until user is loaded
-      }
-      
-      setIsLoading(true);
-      
-      // First fetch user preferences to get their tickers
-      const userPrefsData = await userPreferencesAPI.get(user.id);
-      const prefs = userPrefsData.userPreferences;
-      setUserPreferences(prefs);
-      
-      // Fetch stock updates from API
-      const stockUpdatesData = await stockUpdatesAPI.getAll();
-      let updates = stockUpdatesData.updates || [];
-      
-      // Filter updates based on user preferences
-      if (prefs && prefs.tickers && prefs.tickers.length > 0) {
-        // Only show updates for tickers in user preferences
-        updates = updates.filter(update => 
-          prefs.tickers?.includes(update.ticker)
-        );
-      }
-      
-      setStockUpdates(updates);
-      
-      // Generate alerts based on the most recent updates
-      if (updates.length > 0) {
-        const sortedUpdates = [...updates].sort((a, b) => 
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-        
-        const recentUpdateAlerts = sortedUpdates.slice(0, 3).map(update => ({
-          id: update.id,
-          ticker: update.ticker,
-          eventType: update.eventType,
-          message: update.title,
-          date: update.createdAt
-        }));
-        
-        setRecentAlerts(recentUpdateAlerts);
-      } else {
-        // If no real updates available, use sample data
-        setRecentAlerts([
-          {
-            id: "al_1",
-            ticker: "AAPL",
-            eventType: "dark_pool_buy",
-            message: "Significant dark pool buying detected in AAPL",
-            date: new Date().toISOString()
-          },
-          {
-            id: "al_2",
-            ticker: "MSFT",
-            eventType: "option_flow",
-            message: "Unusual options activity in MSFT $400 calls",
-            date: new Date(Date.now() - 3600000).toISOString()
-          }
-        ]);
-      }
-    } catch (err: any) {
-      console.error("Error fetching dashboard data:", err);
-      setError("Failed to load dashboard data. Please try again later.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    refreshData();
-  }, [isLoaded, user]);
-
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Your Dashboard</h1>
-      
-      {error && (
-        <div className="mb-6 p-4 bg-red-100 text-red-800 rounded-md">
-          {error}
-        </div>
-      )}
-      
-      <div className="mb-6 flex justify-end">
-        <Button onClick={refreshData} variant="outline" size="sm">
-          Refresh Data
-        </Button>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">S&P 500 RSI</span>
+                <span className="text-sm text-muted-foreground">65</span>
+              </div>
+              <Progress value={65} className="h-2" />
+              <span className="text-xs text-muted-foreground">Slightly Overbought</span>
+            </div>
+          </div>
+        </Container>
       </div>
-      
-      {isLoading ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Stock Updates</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {[1, 2, 3].map(i => (
-                    <div key={i} className="border-b pb-4">
-                      <div className="flex justify-between">
-                        <Skeleton className="h-6 w-24" />
-                        <Skeleton className="h-4 w-20" />
-                      </div>
-                      <Skeleton className="h-6 w-3/4 mt-2" />
-                      <Skeleton className="h-20 w-full mt-2" />
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-          <div>
-            <Card className="mb-6">
-              <CardHeader>
-                <CardTitle>Recent Alerts</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {[1, 2].map(i => (
-                    <div key={i} className="border-l-4 border-blue-500 pl-4 py-2">
-                      <Skeleton className="h-6 w-full" />
-                      <Skeleton className="h-4 w-3/4 mt-2" />
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader>
-                <CardTitle>Your Watchlist</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {[1, 2, 3, 4, 5].map(i => (
-                    <div key={i} className="flex justify-between p-2">
-                      <Skeleton className="h-6 w-16" />
-                      <Skeleton className="h-6 w-12" />
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+
+      <Container className="py-6">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold">Dashboard</h1>
+          <Button 
+            variant="outline" 
+            className="flex items-center gap-1"
+            onClick={() => setAddTickerOpen(true)}
+          >
+            <Plus className="h-4 w-4" />
+            Add Ticker
+          </Button>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main content - Stock Updates */}
-          <div className="lg:col-span-2">
-            <Card className="shadow-md">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle>Recent Stock Updates</CardTitle>
-                <Button variant="outline" size="sm" asChild>
-                  <Link href="/updates">View All</Link>
-                </Button>
-              </CardHeader>
-              <CardContent>
-                {stockUpdates.length === 0 ? (
-                  <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-lg">
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No updates yet</h3>
-                    {userPreferences?.tickers?.length ? (
-                      <p className="text-gray-500">We'll notify you when there are updates for your tickers.</p>
-                    ) : (
-                      <div>
-                        <p className="text-gray-500 mb-4">You haven't added any stock tickers to your watchlist.</p>
-                        <Button asChild>
-                          <Link href="/preferences">Add Tickers</Link>
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    {stockUpdates.map((update) => (
-                      <div key={update.id} className="border-b pb-4 mb-4 last:border-0 last:mb-0 last:pb-0">
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="flex items-center">
-                            <span className="font-bold text-lg mr-2">{update.ticker}</span>
-                            <Badge variant={
-                              update.eventType === 'hedge_fund_buy' ? 'success' :
-                              update.eventType === 'hedge_fund_sell' ? 'destructive' :
-                              'secondary'
-                            }>
-                              {formatEventType(update.eventType)}
-                            </Badge>
-                          </div>
-                          <span className="text-sm text-gray-500">
-                            {new Date(update.createdAt).toLocaleDateString()}
-                          </span>
-                        </div>
-                        <h3 className="font-semibold text-lg mb-1">{update.title}</h3>
-                        <p className="text-gray-600 dark:text-gray-300 mb-2">{update.content}</p>
-                        {update.source && (
-                          <div className="text-sm text-gray-500 flex items-center">
-                            <span>Source: {update.source}</span>
-                          </div>
+
+        <div className="grid gap-6">
+          {/* User Watchlist */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex justify-between items-center">
+                <span>Your Watchlist</span>
+                {userState.tickers.length === 0 && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setAddTickerOpen(true)}
+                    className="text-sm text-muted-foreground"
+                  >
+                    Add your first ticker
+                  </Button>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {userState.tickers.length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                  {userState.tickers.map((stock) => (
+                    <motion.div
+                      key={stock.symbol}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex flex-col items-center p-4 rounded-lg bg-card border relative group"
+                    >
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 h-6 w-6"
+                        onClick={() => removeTicker(stock.symbol)}
+                      >
+                        <ArrowDown className="h-3 w-3 rotate-45" />
+                      </Button>
+                      <div className="text-lg font-semibold">{stock.symbol}</div>
+                      <div className="flex items-center gap-1">
+                        {stock.change && stock.change >= 0 ? (
+                          <ArrowUp className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <ArrowDown className="h-4 w-4 text-red-500" />
                         )}
+                        <span className={`${stock.change && stock.change >= 0 ? "text-green-500" : "text-red-500"}`}>
+                          {stock.change ? Math.abs(stock.change) : 0}%
+                        </span>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-          
-          {/* Sidebar */}
-          <div>
-            {/* Test Trigger Creator */}
-            <TestTriggerCreator tickers={userPreferences?.tickers} />
-            
-            {/* Economic Reports */}
-            <div className="mb-6">
-              <EconomicReports limit={3} />
-            </div>
-            
-            {/* Interviews */}
-            <div className="mb-6">
-              <Interviews limit={2} />
-            </div>
-            
-            {/* Alerts */}
-            <Card className="shadow-md mb-6">
-              <CardHeader className="pb-2">
-                <CardTitle>Recent Alerts</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {recentAlerts.length === 0 ? (
-                  <p className="text-center py-4 text-gray-500">No alerts available</p>
-                ) : (
-                  <div className="space-y-4">
-                    {recentAlerts.map((alert) => (
-                      <div key={alert.id} className="border-l-4 border-blue-500 pl-4 py-2">
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="font-semibold">{alert.ticker}</span>
-                          <span className="text-xs text-gray-500">
-                            {new Date(alert.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-300">{alert.message}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                
-                <div className="mt-4">
-                  <Button variant="outline" size="sm" className="w-full" asChild>
-                    <Link href="/alerts">View All Alerts</Link>
+                      <div className="text-sm text-muted-foreground mt-1">${stock.price || 0}</div>
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <LineChart className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No tickers in your watchlist</h3>
+                  <p className="text-sm text-muted-foreground max-w-md mb-4">
+                    Add stock tickers to your watchlist to track their performance and get the latest updates
+                  </p>
+                  <Button onClick={() => setAddTickerOpen(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Ticker
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
-            
-            {/* Watchlist */}
-            <Card className="shadow-md">
-              <CardHeader className="pb-2">
-                <CardTitle>Your Watchlist</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {!userPreferences?.tickers?.length ? (
-                  <div className="text-center py-4">
-                    <p className="text-gray-500 mb-3">No tickers in your watchlist</p>
-                    <Button size="sm" asChild>
-                      <Link href="/preferences">Add Tickers</Link>
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {userPreferences.tickers.map((ticker) => (
-                      <div key={ticker} className="flex justify-between p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded">
-                        <span className="font-medium">{ticker}</span>
-                        <Link href={`/updates/ticker/${ticker}`} className="text-blue-600 hover:underline text-sm">
-                          View Updates
-                        </Link>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                
-                <div className="mt-4">
-                  <Button variant="outline" size="sm" className="w-full" asChild>
-                    <Link href="/preferences">Edit Watchlist</Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Market Intelligence */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Market Intelligence</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue="hedge-fund" className="space-y-4">
+                <TabsList className="grid grid-cols-4 gap-4">
+                  <TabsTrigger value="hedge-fund" className="gap-2">
+                    <Briefcase className="h-4 w-4" />
+                    <span className="hidden sm:inline">Hedge Funds</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="insider" className="gap-2">
+                    <Eye className="h-4 w-4" />
+                    <span className="hidden sm:inline">Insider</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="options" className="gap-2">
+                    <DollarSign className="h-4 w-4" />
+                    <span className="hidden sm:inline">Options</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="technical" className="gap-2">
+                    <LineChart className="h-4 w-4" />
+                    <span className="hidden sm:inline">Technical</span>
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="hedge-fund" className="space-y-4">
+                  {hedgeFundActivity.map((activity) => (
+                    <motion.div key={activity.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+                      <Card>
+                        <CardContent className="pt-6">
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <Badge variant="secondary">Hedge Fund Activity</Badge>
+                                <Badge variant="outline" className="bg-primary/10 text-primary">
+                                  ${activity.ticker}
+                                </Badge>
+                              </div>
+                              <h3 className="font-semibold">
+                                {activity.fund} {activity.action}
+                              </h3>
+                              <p className="text-sm text-muted-foreground">{activity.details}</p>
+                              <div className="text-xs text-muted-foreground">{activity.timestamp}</div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button variant="ghost" size="icon">
+                                <Bell className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setCurrentContext(
+                                    `This hedge fund activity is relevant because it shows significant institutional movement that could impact the stock price. When large funds make moves of this size (${activity.details}), it often signals a strong conviction about the company's future prospects.`,
+                                  )
+                                  setAiChatOpen(true)
+                                }}
+                              >
+                                <Bot className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))}
+                </TabsContent>
+
+                <TabsContent value="insider" className="space-y-4">
+                  {insiderTrading.map((trade) => (
+                    <motion.div key={trade.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+                      <Card>
+                        <CardContent className="pt-6">
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <Badge variant="secondary">Insider Trading</Badge>
+                                <Badge variant="outline" className="bg-primary/10 text-primary">
+                                  ${trade.ticker}
+                                </Badge>
+                              </div>
+                              <h3 className="font-semibold">
+                                {trade.insider} ({trade.role}) {trade.action}
+                              </h3>
+                              <p className="text-sm text-muted-foreground">{trade.details}</p>
+                              <div className="text-xs text-muted-foreground">{trade.timestamp}</div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button variant="ghost" size="icon">
+                                <Bell className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setCurrentContext(
+                                    `Insider trading activity is significant because ${trade.insider}, as ${trade.role}, has direct knowledge of the company's operations. Their decision to ${trade.action.toLowerCase()} shares could indicate their perspective on the company's future performance.`,
+                                  )
+                                  setAiChatOpen(true)
+                                }}
+                              >
+                                <Bot className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))}
+                </TabsContent>
+
+                <TabsContent value="options" className="space-y-4">
+                  {optionsFlow.map((flow) => (
+                    <motion.div key={flow.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+                      <Card>
+                        <CardContent className="pt-6">
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <Badge variant="secondary">Options Flow</Badge>
+                                <Badge variant="outline" className="bg-primary/10 text-primary">
+                                  ${flow.ticker}
+                                </Badge>
+                                <Badge>{flow.type}</Badge>
+                              </div>
+                              <h3 className="font-semibold">Large Options Activity</h3>
+                              <p className="text-sm text-muted-foreground">{flow.details}</p>
+                              <div className="text-xs text-muted-foreground">
+                                Premium: {flow.premium} • {flow.timestamp}
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button variant="ghost" size="icon">
+                                <Bell className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setCurrentContext(
+                                    `This options activity is notable because the size of the premium (${flow.premium}) suggests strong directional conviction from institutional traders. The ${flow.type.toLowerCase()} position could indicate expectations of ${
+                                      flow.type === "CALL" ? "upward" : "downward"
+                                    } price movement.`,
+                                  )
+                                  setAiChatOpen(true)
+                                }}
+                              >
+                                <Bot className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))}
+                </TabsContent>
+
+                <TabsContent value="technical" className="space-y-4">
+                  {technicalSignals.map((signal) => (
+                    <motion.div key={signal.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+                      <Card>
+                        <CardContent className="pt-6">
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <Badge variant="secondary">Technical Signal</Badge>
+                                <Badge variant="outline" className="bg-primary/10 text-primary">
+                                  ${signal.ticker}
+                                </Badge>
+                                <Badge>{signal.strength}</Badge>
+                              </div>
+                              <h3 className="font-semibold">{signal.signal}</h3>
+                              <p className="text-sm text-muted-foreground">{signal.details}</p>
+                              <div className="text-xs text-muted-foreground">{signal.timestamp}</div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button variant="ghost" size="icon">
+                                <Bell className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setCurrentContext(
+                                    `This technical signal (${signal.signal}) is important because it suggests a potential ${
+                                      signal.strength === "Buy" || signal.strength === "Strong Buy"
+                                        ? "bullish"
+                                        : "bearish"
+                                    } price movement based on historical price patterns and momentum indicators.`,
+                                  )
+                                  setAiChatOpen(true)
+                                }}
+                              >
+                                <Bot className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))}
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
         </div>
-      )}
+      </Container>
+      
+      {/* AI Chat Dialog */}
+      <Dialog open={aiChatOpen} onOpenChange={setAiChatOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bot className="h-5 w-5" />
+              AI Assistant
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Card>
+              <CardContent className="pt-4">
+                <div className="flex gap-3">
+                  <Bot className="h-4 w-4 mt-1 shrink-0" />
+                  <p className="text-sm">{currentContext}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <div className="flex gap-2">
+              <Input placeholder="Ask a follow-up question..." />
+              <Button size="sm">Send</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Ticker Dialog */}
+      <AddTickerDialog 
+        open={addTickerOpen} 
+        onOpenChange={setAddTickerOpen}
+        onAddTicker={addTicker}
+      />
     </div>
-  );
+  )
 } 

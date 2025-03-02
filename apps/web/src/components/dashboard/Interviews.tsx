@@ -6,7 +6,7 @@ import { interviewsAPI, Interview } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ExternalLink, Play } from 'lucide-react';
+import { ExternalLink, Play, RefreshCw } from 'lucide-react';
 
 interface InterviewsProps {
   limit?: number;
@@ -16,6 +16,7 @@ export function Interviews({ limit = 3 }: InterviewsProps) {
   const [interviews, setInterviews] = useState<Interview[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -37,9 +38,20 @@ export function Interviews({ limit = 3 }: InterviewsProps) {
     try {
       const data = await interviewsAPI.getRecent(limit);
       setInterviews(data.data || []);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching interviews:', err);
-      setError('Failed to load interviews. Please try again.');
+      let errorMessage = 'Failed to load interviews. Please try again.';
+      
+      // More specific error handling based on error type
+      if (err.message && typeof err.message === 'string') {
+        if (err.message.includes('Failed to fetch')) {
+          errorMessage = 'Cannot connect to the API server. Please ensure the API is running.';
+        } else if (err.message.includes('JSON')) {
+          errorMessage = 'Received invalid data from the server. Please try again later.';
+        }
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -47,7 +59,11 @@ export function Interviews({ limit = 3 }: InterviewsProps) {
 
   useEffect(() => {
     fetchInterviews();
-  }, [limit]);
+  }, [limit, retryCount]);
+
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1);
+  };
 
   return (
     <Card className="shadow-md">
@@ -73,7 +89,13 @@ export function Interviews({ limit = 3 }: InterviewsProps) {
         ) : error ? (
           <div className="text-center py-6">
             <p className="text-red-500 mb-3">{error}</p>
-            <Button onClick={fetchInterviews} size="sm">Retry</Button>
+            <Button 
+              onClick={handleRetry} 
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className="h-4 w-4" /> Retry
+            </Button>
           </div>
         ) : interviews.length === 0 ? (
           <div className="text-center py-6 border-2 border-dashed border-gray-200 rounded-lg">

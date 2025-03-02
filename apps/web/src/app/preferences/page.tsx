@@ -72,11 +72,21 @@ export default function Preferences() {
         type: "success",
         message: "Your preferences have been saved successfully."
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving preferences:", error);
+      
+      // Provide more descriptive messages based on error type
+      let errorMessage = "Failed to save preferences. Please try again.";
+      
+      if (error.message?.includes("Network error")) {
+        errorMessage = "Network connection issue. Please check your internet connection and ensure the API server is running.";
+      } else if (error.message?.includes("API error")) {
+        errorMessage = `Server error: ${error.message}. Please try again later.`;
+      }
+      
       setSaveStatus({
         type: "error",
-        message: "Failed to save preferences. Please try again."
+        message: errorMessage
       });
     } finally {
       setIsSaving(false);

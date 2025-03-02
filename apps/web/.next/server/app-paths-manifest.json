@@ -1,4 +1,10 @@
 {
-  "/signup/page": "app/signup/page.js",
-  "/page": "app/page.js"
+  "/interviews/page": "app/interviews/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/dashboard/hedge-funds/page": "app/dashboard/hedge-funds/page.js",
+  "/dashboard/alerts/page": "app/dashboard/alerts/page.js",
+  "/dashboard/notifications/page": "app/dashboard/notifications/page.js",
+  "/dashboard/technical/page": "app/dashboard/technical/page.js",
+  "/dashboard/insider-trading/page": "app/dashboard/insider-trading/page.js",
+  "/dashboard/options/page": "app/dashboard/options/page.js"
 }

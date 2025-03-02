@@ -1,0 +1,8 @@
+              List of relations
+ Schema |       Name       | Type  |  Owner   
+--------+------------------+-------+----------
+ public | stock_events     | table | postgres
+ public | stock_updates    | table | postgres
+ public | user_preferences | table | postgres
+(3 rows)
+

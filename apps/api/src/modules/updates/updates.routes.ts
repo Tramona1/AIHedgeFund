@@ -1,7 +1,6 @@
 import { Hono } from "hono";
-import { updatesService } from "./updates.service";
+import { updatesService } from "./updates.service.js";
 import { logger } from "@repo/logger";
-import { zValidator } from "@/pkg/util/validator-wrapper";
 import { z } from "zod";
 
 // Create a component-specific logger
@@ -25,12 +24,28 @@ const stockUpdateSchema = z.object({
   source: z.string().optional(),
 });
 
+// Type for validated data
+type StockUpdateData = z.infer<typeof stockUpdateSchema>;
+
 // Create a router for stock updates
 export const updatesRoutes = new Hono()
   // POST /api/updates - Create a new stock update
-  .post("/", zValidator("json", stockUpdateSchema), async (c) => {
+  .post("/", async (c) => {
     try {
-      const data = c.req.valid("json");
+      // Manual validation as a workaround
+      const body = await c.req.json();
+      const validation = stockUpdateSchema.safeParse(body);
+      
+      if (!validation.success) {
+        return c.json({
+          status: "error",
+          message: "Validation failed",
+          errors: validation.error.format(),
+          code: 400
+        }, 400);
+      }
+      
+      const data = validation.data;
       
       routeLogger.info("Received stock update creation request", { 
         ticker: data.ticker, 

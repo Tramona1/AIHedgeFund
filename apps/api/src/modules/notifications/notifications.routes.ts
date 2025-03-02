@@ -1,7 +1,8 @@
 import { Hono } from "hono";
-import { notificationsService } from "./notifications.service";
+// @ts-ignore: JS file without types
+import { notificationsService } from "./notifications.service.js";
 import { logger } from "@repo/logger";
-import { zValidator } from "@/pkg/util/validator-wrapper";
+import { zValidator } from "../../pkg/util/validator-wrapper.js";
 import { z } from "zod";
 
 // Create a component-specific logger
@@ -17,9 +18,21 @@ const testEmailSchema = z.object({
 // Create a router for notifications
 export const notificationsRoutes = new Hono()
   // POST /api/notifications/test - Send a test email
-  .post("/test", zValidator("json", testEmailSchema), async (c) => {
+  .post("/test", async (c) => {
     try {
-      const { ticker, eventType, details = {} } = c.req.valid("json");
+      const body = await c.req.json();
+      const validation = testEmailSchema.safeParse(body);
+      
+      if (!validation.success) {
+        return c.json({
+          status: "error",
+          message: "Validation failed",
+          errors: validation.error.format(),
+          code: 400
+        }, 400);
+      }
+      
+      const { ticker, eventType, details = {} } = validation.data;
       
       routeLogger.info("Received test email request", { ticker, eventType });
       

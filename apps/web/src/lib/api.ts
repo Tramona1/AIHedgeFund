@@ -1,10 +1,34 @@
 // API service for interacting with the backend
 
 /**
+ * Next.js provides fetch globally in both client and server components.
+ * If you encounter "fetch is not defined" errors:
+ * 1. Check that you're using Next.js correctly
+ * 2. Ensure you have the correct environment setup
+ * 3. For non-Next.js environments, consider adding:
+ *    import 'isomorphic-fetch'; or import 'cross-fetch';
+ */
+
+/**
  * Base API URL from environment variable or fallback to localhost in development
  */
-const API_BASE_URL = 
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const API_BASE_URL = (() => {
+  // Use environment variable if defined
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  
+  // In browser environment, detect the current URL and port
+  if (typeof window !== 'undefined') {
+    // Get the current hostname (allows for testing on other devices on the network)
+    const hostname = window.location.hostname;
+    // Always use the fixed API port in development
+    return `http://${hostname}:3002`;
+  }
+  
+  // Default fallback for server-side
+  return 'http://localhost:3002';
+})();
 
 /**
  * Generic API fetcher with error handling
@@ -15,20 +39,36 @@ async function fetchAPI<T>(
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
   
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
+  try {
+    console.log(`Fetching from: ${url}`);
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    });
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || 'An error occurred while fetching the data.');
+    if (!response.ok) {
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        errorData = { message: `HTTP error ${response.status}` };
+      }
+      throw new Error(errorData.message || `API error: ${response.status}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error(`Failed to fetch from ${url}:`, error);
+    // Add more context to the error
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+      throw new Error(`Network error: Could not connect to API at ${API_BASE_URL}. Please ensure the API server is running.`);
+    }
+    // Re-throw to allow components to handle the error
+    throw error;
   }
-
-  return response.json();
 }
 
 /**
@@ -117,20 +157,62 @@ export const stockUpdatesAPI = {
  * User Preferences API
  */
 export const userPreferencesAPI = {
-  /**
-   * Get user preferences
-   */
-  get: (userId: string) => 
-    fetchAPI<{ userPreferences: UserPreferences }>(`/api/users/${userId}/preferences`),
-    
-  /**
-   * Create or update user preferences
-   */
-  update: (data: Omit<UserPreferences, 'id' | 'createdAt' | 'updatedAt'>) => 
-    fetchAPI<{ status: string }>('/api/users/preferences', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+  async get(userId: string): Promise<{ userPreferences: UserPreferences | null }> {
+    try {
+      if (!userId) {
+        console.warn('Attempted to fetch user preferences without a user ID');
+        return { userPreferences: null };
+      }
+      
+      return await fetchAPI<{ userPreferences: UserPreferences | null }>(`/api/users/${userId}/preferences`);
+    } catch (error) {
+      console.error('Error fetching user preferences:', error);
+      
+      // If it's a "User not found" error, this might be a new user
+      if (error instanceof Error && error.message === 'User not found') {
+        console.log('This appears to be a new user - returning empty preferences');
+        // Return empty result for new users instead of propagating the error
+        return { userPreferences: null };
+      }
+      
+      // Return empty result for all errors instead of propagating
+      return { userPreferences: null };
+    }
+  },
+  
+  async update(data: Partial<UserPreferences>): Promise<{ success: boolean; message?: string }> {
+    try {
+      // Add retry logic for when the server might be starting up
+      const maxRetries = 3;
+      let lastError: any = null;
+      
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          const result = await fetchAPI<{ success: boolean; message?: string }>(`/api/users/${data.userId}/preferences`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+          });
+          return result;
+        } catch (err) {
+          console.log(`API call attempt ${attempt} failed:`, err);
+          lastError = err;
+          
+          // Only retry on network errors, not on API errors
+          if (!(err instanceof TypeError) || attempt === maxRetries) {
+            throw err;
+          }
+          
+          // Wait between retries (exponential backoff)
+          await new Promise(r => setTimeout(r, 1000 * attempt));
+        }
+      }
+      
+      throw lastError;
+    } catch (error) {
+      console.error('Error updating user preferences:', error);
+      throw error;
+    }
+  }
 };
 
 /**

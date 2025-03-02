@@ -6,7 +6,7 @@
   "license": "MIT",
   "scripts": {
     "build:ts": "tsc -p tsconfig.build.json",
-    "build": "rm -rf dist && npm run build:ts && mkdir -p dist/schema && cp package.json dist/ && cp src/schema/*.ts dist/schema/",
+    "build": "rm -rf dist && npm run build:ts && mkdir -p dist/schema && cp package.json dist/ && cp src/schema/*.ts dist/schema/ && cp src/types.ts dist/ && npx tsc src/index.ts --outDir dist --module CommonJS --esModuleInterop",
     "build:tsup": "tsup",
     "dev": "tsup --watch",
     "lint": "eslint src/",
@@ -29,7 +29,7 @@
   "dependencies": {
     "drizzle-orm": "^0.30.10",
     "drizzle-zod": "^0.5.0",
-    "postgres": "^3.4.3",
+    "postgres": "^3.4.5",
     "zod": "^3.22.4"
   }
 }

@@ -4,6 +4,8 @@ var IDPrefix = /* @__PURE__ */ ((IDPrefix2) => {
   IDPrefix2["USER"] = "user_";
   IDPrefix2["STOCK_UPDATE"] = "update_";
   IDPrefix2["AI_TRIGGER"] = "trigger_";
+  IDPrefix2["REPORT"] = "report_";
+  IDPrefix2["INTERVIEW"] = "interview_";
   return IDPrefix2;
 })(IDPrefix || {});
 function generateId(prefix, length = 12) {

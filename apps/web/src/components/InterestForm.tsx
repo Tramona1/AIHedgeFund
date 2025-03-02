@@ -1,12 +1,13 @@
 "use client"
 
 import * as React from "react"
-import { X } from "lucide-react"
+import { X, ArrowRight } from "lucide-react"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/Button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card"
 import { Badge } from "@/components/ui/Badge"
 import { Input } from "@/components/ui/input"
+import { useRouter } from "next/navigation"
 
 // Sample data - in production, this would come from an API
 const SECTORS = [
@@ -63,7 +64,21 @@ interface Interest {
   label: string
 }
 
+// Define interface for ticker objects in dashboard
+interface Ticker {
+  symbol: string;
+  price?: number;
+  change?: number;
+  volume?: string;
+}
+
+// Define interface for user state
+interface UserState {
+  tickers: Ticker[];
+}
+
 export function InterestForm() {
+  const router = useRouter()
   const [interests, setInterests] = React.useState<Interest[]>([])
   const [search, setSearch] = React.useState("")
   const [selectedSuggestions, setSelectedSuggestions] = React.useState<string[]>([])
@@ -147,6 +162,56 @@ export function InterestForm() {
     })
   }
 
+  // Function to save interests to localStorage and navigate to dashboard
+  const saveAndNavigate = () => {
+    // Extract ticker symbols from interests
+    const tickerInterests = interests.filter(interest => 
+      interest.type === "ticker" || interest.type === "crypto" || interest.type === "reit"
+    )
+    
+    const tickerSymbols = tickerInterests.map(interest => interest.value)
+    
+    // Generate random price and change for each ticker
+    const getRandomPrice = () => Math.floor(Math.random() * 1000) / 10 + 50
+    const getRandomChange = () => Math.floor(Math.random() * 60) / 10 - 3
+    
+    // Create ticker objects
+    const tickers: Ticker[] = tickerSymbols.map(symbol => ({
+      symbol,
+      price: getRandomPrice(),
+      change: getRandomChange(),
+      volume: `${Math.floor(Math.random() * 20) + 1}.${Math.floor(Math.random() * 9)}M`
+    }))
+    
+    // Save to localStorage
+    try {
+      // First try to get existing tickers
+      const existingData = localStorage.getItem('user_tickers')
+      let userState: UserState = { tickers: [] }
+      
+      if (existingData) {
+        userState = JSON.parse(existingData)
+      }
+      
+      // Add new tickers (avoiding duplicates)
+      const updatedTickers = [...userState.tickers]
+      
+      tickers.forEach(newTicker => {
+        if (!updatedTickers.some(existingTicker => existingTicker.symbol === newTicker.symbol)) {
+          updatedTickers.push(newTicker)
+        }
+      })
+      
+      // Save updated state
+      localStorage.setItem('user_tickers', JSON.stringify({ tickers: updatedTickers }))
+      
+      // Navigate to dashboard
+      router.push('/dashboard')
+    } catch (error) {
+      console.error('Error saving tickers to localStorage:', error)
+    }
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.9 }}
@@ -198,7 +263,13 @@ export function InterestForm() {
 
             {interests.length > 0 && (
               <div className="pt-4">
-                <Button className="w-full bg-blue-600 hover:bg-blue-700">Start Tracking ({interests.length})</Button>
+                <Button 
+                  className="w-full bg-blue-600 hover:bg-blue-700 flex items-center justify-center"
+                  onClick={saveAndNavigate}
+                >
+                  Start Tracking ({interests.length})
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
               </div>
             )}
 

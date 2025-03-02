@@ -7,6 +7,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from "@/components/ui/Badge";
+import { RefreshCw } from 'lucide-react';
 
 interface EconomicReportsProps {
   limit?: number;
@@ -16,6 +17,7 @@ export function EconomicReports({ limit = 5 }: EconomicReportsProps) {
   const [reports, setReports] = useState<EconomicReport[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -32,9 +34,20 @@ export function EconomicReports({ limit = 5 }: EconomicReportsProps) {
     try {
       const data = await economicReportsAPI.getRecent(limit);
       setReports(data.data || []);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching economic reports:', err);
-      setError('Failed to load economic reports. Please try again.');
+      let errorMessage = 'Failed to load economic reports. Please try again.';
+      
+      // More specific error handling based on error type
+      if (err.message && typeof err.message === 'string') {
+        if (err.message.includes('Failed to fetch')) {
+          errorMessage = 'Cannot connect to the API server. Please ensure the API is running.';
+        } else if (err.message.includes('JSON')) {
+          errorMessage = 'Received invalid data from the server. Please try again later.';
+        }
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -42,7 +55,11 @@ export function EconomicReports({ limit = 5 }: EconomicReportsProps) {
 
   useEffect(() => {
     fetchReports();
-  }, [limit]);
+  }, [limit, retryCount]);
+
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1);
+  };
 
   return (
     <Card className="shadow-md">
@@ -67,7 +84,13 @@ export function EconomicReports({ limit = 5 }: EconomicReportsProps) {
         ) : error ? (
           <div className="text-center py-6">
             <p className="text-red-500 mb-3">{error}</p>
-            <Button onClick={fetchReports} size="sm">Retry</Button>
+            <Button 
+              onClick={handleRetry} 
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className="h-4 w-4" /> Retry
+            </Button>
           </div>
         ) : reports.length === 0 ? (
           <div className="text-center py-6 border-2 border-dashed border-gray-200 rounded-lg">

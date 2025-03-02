@@ -1,12 +1,36 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./schema/index";
+import { userPreferences, users } from "./schema/user-preferences";
+import { stockUpdates } from "./schema/stock-updates";
+import { aiTriggers } from "./schema/ai-triggers";
 
-// Create a PostgreSQL client
-const client = postgres(process.env.DATABASE_URL || "");
+// Get database URL with a fallback
+const databaseUrl = process.env.DATABASE_URL || 'postgres://postgres@localhost:5432/ai_hedge_fund';
 
-// Create a drizzle ORM instance
-export const db = drizzle(client, { schema });
+console.log("Initializing database connection with:", databaseUrl);
+
+// Create a PostgreSQL client with minimal options - simplified based on successful tests
+const client = postgres(databaseUrl, {
+  connection: {
+    search_path: 'public'
+  }
+});
+
+// Create a drizzle ORM instance - explicitly including userPreferences in the schema
+export const db = drizzle(client, { 
+  schema: {
+    ...schema,
+    // Also expose the tables directly
+    userPreferences,
+    users,
+    stockUpdates,
+    aiTriggers
+  } 
+});
+
+// Log successful initialization
+console.log("Database initialized successfully");
 
 // Export schema for use in other modules
 export * from "./schema/index";

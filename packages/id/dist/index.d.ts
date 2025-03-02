@@ -2,7 +2,9 @@ type ID = string;
 declare enum IDPrefix {
     USER = "user_",
     STOCK_UPDATE = "update_",
-    AI_TRIGGER = "trigger_"
+    AI_TRIGGER = "trigger_",
+    REPORT = "report_",
+    INTERVIEW = "interview_"
 }
 declare function generateId(prefix: IDPrefix, length?: number): ID;
 declare function validateId(id: string, prefix: IDPrefix): boolean;

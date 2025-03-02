@@ -2,7 +2,7 @@ import { pgTable, text, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Define the user preferences table
+// Define the user preferences table with explicit table name
 export const userPreferences = pgTable("user_preferences", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull().unique(),
@@ -15,6 +15,9 @@ export const userPreferences = pgTable("user_preferences", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   customTriggers: jsonb("custom_triggers"),
 });
+
+// Add a direct reference for users module access
+export const users = userPreferences;
 
 // Create Zod schemas for validation
 export const insertUserPreferencesSchema = createInsertSchema(userPreferences, {

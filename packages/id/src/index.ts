@@ -8,6 +8,8 @@ export enum IDPrefix {
   USER = 'user_',
   STOCK_UPDATE = 'update_',
   AI_TRIGGER = 'trigger_',
+  REPORT = 'report_',
+  INTERVIEW = 'interview_',
 }
 
 // Generate a new ID with the specified prefix and optional length

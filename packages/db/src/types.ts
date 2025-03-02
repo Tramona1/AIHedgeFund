@@ -1,9 +1,10 @@
 import { z } from "zod";
 
 // Re-export all schema validators
-export * from "./schema/user-preferences.js";
-export * from "./schema/stock-updates.js";
-export * from "./schema/stock-events.js";
+export * from "./schema/user-preferences";
+export * from "./schema/stock-updates";
+export * from "./schema/stock-events";
+export * from "./schema/ai-triggers";
 
 // AI Trigger Payload Schema for API validation
 export const aiTriggerPayloadSchema = z.object({
