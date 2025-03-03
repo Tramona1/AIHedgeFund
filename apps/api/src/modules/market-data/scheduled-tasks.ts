@@ -52,10 +52,7 @@ export async function runPriceAlertTasks() {
     // Run all price alert checks
     const results = await priceAlertsService.runAllAlertChecks();
     
-    tasksLogger.info("Price alert checks completed", {
-      totalProcessed: results.totalProcessed,
-      totalNotified: results.totalNotified
-    });
+    tasksLogger.info("Completed price alerts check. Processed: " + results.alertsProcessed + ", Triggered: " + results.triggeredAlerts);
     
     return results;
   } catch (error) {

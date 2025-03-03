@@ -1,22 +1,15 @@
 {
   "extends": "../../tsconfig.json",
+  "include": ["**/*.ts", "../types/**/*.d.ts", "../../types/**/*.d.ts"],
+  "exclude": ["node_modules", "dist"],
   "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "skipLibCheck": true,
+    "target": "ESNext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "esModuleInterop": true,
+    "types": ["node"],
     "allowJs": true,
-    "resolveJsonModule": true,
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["./src/*"]
-    },
-    "noEmit": false
-  },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.d.ts", "src/**/*.js"],
-  "references": [
-    { "path": "../../packages/db" },
-    { "path": "../../packages/logger" },
-    { "path": "../../packages/id" }
-  ]
+    "skipLibCheck": true,
+    "typeRoots": ["../../node_modules/@types", "../../types", "../types"]
+  }
 } 

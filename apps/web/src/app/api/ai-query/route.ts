@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Call the API service
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
     const response = await fetch(`${apiUrl}/api/ai-query`, {
       method: 'POST',
       headers: {
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Call the API service
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
     const response = await fetch(`${apiUrl}/api/ai-query/history?userId=${userId}&limit=${limit}&offset=${offset}`, {
       method: 'GET',
       headers: {

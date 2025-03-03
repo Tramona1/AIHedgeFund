@@ -1,10 +1,16 @@
 import { z } from "zod";
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
+
+import { userPreferences } from "./schema/user-preferences.js";
+import { stockUpdates } from "./schema/stock-updates.js";
+import { stockEvents } from "./schema/stock-events.js";
+import { aiTriggers } from "./schema/ai-triggers.js";
 
 // Re-export all schema validators
-export * from "./schema/user-preferences";
-export * from "./schema/stock-updates";
-export * from "./schema/stock-events";
-export * from "./schema/ai-triggers";
+export * from "./schema/user-preferences.js";
+export * from "./schema/stock-updates.js";
+export * from "./schema/stock-events.js";
+export * from "./schema/ai-triggers.js";
 
 // AI Trigger Payload Schema for API validation
 export const aiTriggerPayloadSchema = z.object({

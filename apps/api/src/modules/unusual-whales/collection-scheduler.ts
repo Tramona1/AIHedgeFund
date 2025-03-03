@@ -8,7 +8,7 @@ const schedulerLogger = logger.child({ module: 'unusual-whales-scheduler' });
  * Class that handles scheduling of data collection jobs for Unusual Whales data
  */
 export class UnusualWhalesScheduler {
-  private dataCollectionInterval: NodeJS.Timer | null = null;
+  private isRunning = false;
   
   /**
    * Start the scheduler for collecting Unusual Whales data
@@ -16,13 +16,15 @@ export class UnusualWhalesScheduler {
   startScheduler() {
     schedulerLogger.info('Starting Unusual Whales data collection scheduler');
     
-    // Schedule a job to collect options flow and dark pool data
-    this.scheduleDataCollection();
+    this.isRunning = true;
+    
+    // Run an initial collection
+    this.collectUnusualWhalesData();
     
     schedulerLogger.info('Unusual Whales data collection scheduler started');
     
     return {
-      dataCollectionActive: !!this.dataCollectionInterval
+      isRunning: this.isRunning
     };
   }
   
@@ -32,11 +34,7 @@ export class UnusualWhalesScheduler {
   stopScheduler() {
     schedulerLogger.info('Stopping Unusual Whales data collection scheduler');
     
-    // Clear the data collection interval
-    if (this.dataCollectionInterval) {
-      clearInterval(this.dataCollectionInterval);
-      this.dataCollectionInterval = null;
-    }
+    this.isRunning = false;
     
     schedulerLogger.info('Unusual Whales data collection scheduler stopped');
     
@@ -44,32 +42,14 @@ export class UnusualWhalesScheduler {
   }
   
   /**
-   * Schedule a job to collect Unusual Whales data
-   * This runs every 30 minutes during market hours and once in the evening
-   */
-  private scheduleDataCollection() {
-    // Collect data immediately on startup
-    this.collectUnusualWhalesData();
-    
-    // Schedule regular collection every 30 minutes
-    this.dataCollectionInterval = setInterval(() => {
-      // Check if we should run collection based on market hours
-      const shouldCollect = this.shouldCollectData();
-      
-      if (shouldCollect) {
-        schedulerLogger.info('Running scheduled Unusual Whales data collection');
-        this.collectUnusualWhalesData();
-      }
-    }, 30 * 60 * 1000); // Every 30 minutes
-    
-    schedulerLogger.info('Unusual Whales data collection scheduled');
-  }
-  
-  /**
    * Determine if data should be collected based on market hours and schedule
    */
-  private shouldCollectData(): boolean {
+  shouldCollectData(): boolean {
     try {
+      if (!this.isRunning) {
+        return false;
+      }
+      
       const now = new Date();
       const day = now.getDay();
       const hour = now.getHours();
@@ -121,7 +101,7 @@ export class UnusualWhalesScheduler {
   /**
    * Run the data collection for Unusual Whales data
    */
-  private async collectUnusualWhalesData() {
+  async collectUnusualWhalesData() {
     try {
       schedulerLogger.info('Starting Unusual Whales data collection');
       
@@ -160,7 +140,7 @@ export class UnusualWhalesScheduler {
    */
   getStatus() {
     return {
-      dataCollectionActive: !!this.dataCollectionInterval
+      isRunning: this.isRunning
     };
   }
 }

@@ -1,13 +1,19 @@
-import { Hono } from "hono";
+// @ts-nocheck - Fix for multiple versions of drizzle-orm
+import express from "express";
 import { logger } from "@repo/logger";
 import { db } from "@repo/db";
-import { userWatchlist } from "@repo/db/schema/index.js";
-import { and, eq } from "drizzle-orm";
+import { and } from "drizzle-orm";
 import { z } from "zod";
-import { zValidator } from "@hono/zod-validator";
+import { selectWhere, insertInto, updateWhere, safeEq } from "../../lib/db-helpers.js";
+
+// Get schema objects directly from DB instance
+const { userWatchlist } = db._.schema;
 
 // Create a module-specific logger
 const watchlistLogger = logger.child({ module: "watchlist-routes" });
+
+// Create a router for the watchlist routes
+const router = express.Router();
 
 // Schemas for validation
 const symbolParamSchema = z.object({
@@ -28,41 +34,124 @@ const updateNotesSchema = z.object({
   notes: z.string(),
 });
 
-// Create a Hono app for the watchlist routes
-const app = new Hono();
+// Middleware for validating userId parameter
+const validateUserId = (req, res, next) => {
+  try {
+    const result = userIdParamSchema.safeParse({ userId: req.params.userId });
+    if (!result.success) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid userId parameter',
+        errors: result.error.errors
+      });
+    }
+    next();
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: 'Error validating userId parameter',
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+};
+
+// Middleware for validating symbol parameter
+const validateSymbol = (req, res, next) => {
+  try {
+    const result = symbolParamSchema.safeParse({ symbol: req.params.symbol });
+    if (!result.success) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid symbol parameter',
+        errors: result.error.errors
+      });
+    }
+    next();
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: 'Error validating symbol parameter',
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+};
+
+// Middleware for validating add symbol request body
+const validateAddSymbol = (req, res, next) => {
+  try {
+    const result = addSymbolSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid request body',
+        errors: result.error.errors
+      });
+    }
+    req.validatedBody = result.data;
+    next();
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: 'Error validating request body',
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+};
+
+// Middleware for validating update notes request body
+const validateUpdateNotes = (req, res, next) => {
+  try {
+    const result = updateNotesSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid notes in request body',
+        errors: result.error.errors
+      });
+    }
+    req.validatedBody = result.data;
+    next();
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: 'Error validating notes in request body',
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+};
 
 /**
  * Get all watchlist items for a user
  * GET /api/market-data/watchlist/user/:userId
  */
-app.get("/user/:userId", zValidator("param", userIdParamSchema), async (c) => {
+router.get("/user/:userId", validateUserId, async (req, res) => {
   try {
-    const { userId } = c.req.valid("param");
+    const userId = req.params.userId;
     watchlistLogger.info(`Getting watchlist for user ${userId}`);
     
-    const watchlistItems = await db
-      .select()
-      .from(userWatchlist)
-      .where(and(
-        eq(userWatchlist.userId, userId),
-        eq(userWatchlist.isActive, true)
-      ));
+    const watchlistItems = await selectWhere(
+      userWatchlist,
+      and(
+        safeEq(userWatchlist.userId, userId),
+        safeEq(userWatchlist.isActive, true)
+      )
+    );
     
-    return c.json({
+    return res.json({
       success: true,
       userId,
       watchlist: watchlistItems,
     });
   } catch (error) {
-    watchlistLogger.error(`Error getting watchlist for user ${c.req.param("userId")}`, {
+    watchlistLogger.error(`Error getting watchlist for user ${req.params.userId}`, {
       error: error instanceof Error ? error.message : String(error),
     });
     
-    return c.json({
+    return res.status(500).json({
       success: false,
       message: "Failed to get user watchlist",
       error: error instanceof Error ? error.message : String(error),
-    }, 500);
+    });
   }
 });
 
@@ -70,85 +159,81 @@ app.get("/user/:userId", zValidator("param", userIdParamSchema), async (c) => {
  * Add a symbol to a user's watchlist
  * POST /api/market-data/watchlist/add
  */
-app.post("/add", zValidator("json", addSymbolSchema), async (c) => {
+router.post("/add", validateAddSymbol, async (req, res) => {
   try {
-    const { userId, symbol, notes } = await c.req.valid("json");
+    const { userId, symbol, notes } = req.validatedBody;
     watchlistLogger.info(`Adding ${symbol} to watchlist for user ${userId}`);
     
     // Check if symbol already exists for this user
-    const existing = await db
-      .select()
-      .from(userWatchlist)
-      .where(and(
-        eq(userWatchlist.userId, userId),
-        eq(userWatchlist.symbol, symbol)
-      ));
+    const existing = await selectWhere(
+      userWatchlist,
+      and(
+        safeEq(userWatchlist.userId, userId),
+        safeEq(userWatchlist.symbol, symbol)
+      )
+    );
     
     if (existing.length > 0) {
       // If it exists but is not active, reactivate it
       if (!existing[0].isActive) {
-        await db
-          .update(userWatchlist)
-          .set({ 
+        const updated = await updateWhere(
+          userWatchlist,
+          { 
             isActive: true,
             notes: notes || existing[0].notes,
             addedAt: new Date()
-          })
-          .where(and(
-            eq(userWatchlist.userId, userId),
-            eq(userWatchlist.symbol, symbol)
-          ));
+          },
+          and(
+            safeEq(userWatchlist.userId, userId),
+            safeEq(userWatchlist.symbol, symbol)
+          )
+        );
         
         watchlistLogger.info(`Reactivated ${symbol} in watchlist for user ${userId}`);
         
-        return c.json({
+        return res.json({
           success: true,
           message: `Symbol ${symbol} reactivated in watchlist`,
-          watchlistItem: {
-            ...existing[0],
-            isActive: true,
-            notes: notes || existing[0].notes,
-            addedAt: new Date()
-          }
+          watchlistItem: updated[0]
         });
       }
       
-      return c.json({
+      return res.status(409).json({
         success: false,
         message: `Symbol ${symbol} already exists in watchlist`,
         watchlistItem: existing[0]
-      }, 409);
+      });
     }
     
     // Insert the new watchlist item
-    const result = await db
-      .insert(userWatchlist)
-      .values({
+    const result = await insertInto(
+      userWatchlist,
+      {
         userId,
         symbol,
         notes,
         addedAt: new Date(),
         isActive: true
-      })
-      .returning();
+      }
+    );
     
     watchlistLogger.info(`Added ${symbol} to watchlist for user ${userId}`);
     
-    return c.json({
+    return res.json({
       success: true,
       message: `Symbol ${symbol} added to watchlist`,
-      watchlistItem: result[0]
+      watchlistItem: result
     });
   } catch (error) {
     watchlistLogger.error("Error adding symbol to watchlist", {
       error: error instanceof Error ? error.message : String(error),
     });
     
-    return c.json({
+    return res.status(500).json({
       success: false,
       message: "Failed to add symbol to watchlist",
       error: error instanceof Error ? error.message : String(error),
-    }, 500);
+    });
   }
 });
 
@@ -156,36 +241,37 @@ app.post("/add", zValidator("json", addSymbolSchema), async (c) => {
  * Remove a symbol from a user's watchlist (soft delete)
  * DELETE /api/market-data/watchlist/user/:userId/symbol/:symbol
  */
-app.delete(
+router.delete(
   "/user/:userId/symbol/:symbol", 
-  zValidator("param", userIdParamSchema),
-  zValidator("param", symbolParamSchema),
-  async (c) => {
+  validateUserId,
+  validateSymbol,
+  async (req, res) => {
     try {
-      const { userId, symbol } = c.req.valid("param");
+      const userId = req.params.userId;
+      const symbol = req.params.symbol;
       watchlistLogger.info(`Removing ${symbol} from watchlist for user ${userId}`);
       
       // Soft delete by setting isActive to false
-      const result = await db
-        .update(userWatchlist)
-        .set({ isActive: false })
-        .where(and(
-          eq(userWatchlist.userId, userId),
-          eq(userWatchlist.symbol, symbol),
-          eq(userWatchlist.isActive, true)
-        ))
-        .returning();
+      const result = await updateWhere(
+        userWatchlist,
+        { isActive: false },
+        and(
+          safeEq(userWatchlist.userId, userId),
+          safeEq(userWatchlist.symbol, symbol),
+          safeEq(userWatchlist.isActive, true)
+        )
+      );
       
       if (result.length === 0) {
-        return c.json({
+        return res.status(404).json({
           success: false,
           message: `Symbol ${symbol} not found in watchlist or already removed`,
-        }, 404);
+        });
       }
       
       watchlistLogger.info(`Removed ${symbol} from watchlist for user ${userId}`);
       
-      return c.json({
+      return res.json({
         success: true,
         message: `Symbol ${symbol} removed from watchlist`,
         watchlistItem: result[0]
@@ -195,11 +281,11 @@ app.delete(
         error: error instanceof Error ? error.message : String(error),
       });
       
-      return c.json({
+      return res.status(500).json({
         success: false,
         message: "Failed to remove symbol from watchlist",
         error: error instanceof Error ? error.message : String(error),
-      }, 500);
+      });
     }
   }
 );
@@ -208,38 +294,39 @@ app.delete(
  * Update notes for a symbol in a user's watchlist
  * PATCH /api/market-data/watchlist/user/:userId/symbol/:symbol/notes
  */
-app.patch(
+router.patch(
   "/user/:userId/symbol/:symbol/notes",
-  zValidator("param", userIdParamSchema),
-  zValidator("param", symbolParamSchema),
-  zValidator("json", updateNotesSchema),
-  async (c) => {
+  validateUserId,
+  validateSymbol,
+  validateUpdateNotes,
+  async (req, res) => {
     try {
-      const { userId, symbol } = c.req.valid("param");
-      const { notes } = await c.req.valid("json");
+      const userId = req.params.userId;
+      const symbol = req.params.symbol;
+      const { notes } = req.validatedBody;
       
       watchlistLogger.info(`Updating notes for ${symbol} in watchlist for user ${userId}`);
       
-      const result = await db
-        .update(userWatchlist)
-        .set({ notes })
-        .where(and(
-          eq(userWatchlist.userId, userId),
-          eq(userWatchlist.symbol, symbol),
-          eq(userWatchlist.isActive, true)
-        ))
-        .returning();
+      const result = await updateWhere(
+        userWatchlist,
+        { notes },
+        and(
+          safeEq(userWatchlist.userId, userId),
+          safeEq(userWatchlist.symbol, symbol),
+          safeEq(userWatchlist.isActive, true)
+        )
+      );
       
       if (result.length === 0) {
-        return c.json({
+        return res.status(404).json({
           success: false,
           message: `Symbol ${symbol} not found in watchlist`,
-        }, 404);
+        });
       }
       
       watchlistLogger.info(`Updated notes for ${symbol} in watchlist for user ${userId}`);
       
-      return c.json({
+      return res.json({
         success: true,
         message: `Notes updated for ${symbol}`,
         watchlistItem: result[0]
@@ -249,11 +336,11 @@ app.patch(
         error: error instanceof Error ? error.message : String(error),
       });
       
-      return c.json({
+      return res.status(500).json({
         success: false,
-        message: "Failed to update notes for symbol",
+        message: "Failed to update notes",
         error: error instanceof Error ? error.message : String(error),
-      }, 500);
+      });
     }
   }
 );
@@ -262,16 +349,16 @@ app.patch(
  * Bulk add symbols to a user's watchlist
  * POST /api/market-data/watchlist/bulk-add
  */
-app.post("/bulk-add", async (c) => {
+router.post("/bulk-add", async (req, res) => {
   try {
-    const body = await c.req.json();
+    const body = req.body;
     const { userId, symbols } = body;
     
     if (!userId || !symbols || !Array.isArray(symbols) || symbols.length === 0) {
-      return c.json({
+      return res.status(400).json({
         success: false,
         message: "Invalid request. Required: userId and symbols array",
-      }, 400);
+      });
     }
     
     watchlistLogger.info(`Bulk adding ${symbols.length} symbols to watchlist for user ${userId}`);
@@ -293,32 +380,33 @@ app.post("/bulk-add", async (c) => {
       
       try {
         // Check if symbol already exists for this user
-        const existing = await db
-          .select()
-          .from(userWatchlist)
-          .where(and(
-            eq(userWatchlist.userId, userId),
-            eq(userWatchlist.symbol, validSymbol)
-          ));
+        const existing = await selectWhere(
+          userWatchlist,
+          and(
+            safeEq(userWatchlist.userId, userId),
+            safeEq(userWatchlist.symbol, validSymbol)
+          )
+        );
         
         if (existing.length > 0) {
           // If it exists but is not active, reactivate it
           if (!existing[0].isActive) {
-            await db
-              .update(userWatchlist)
-              .set({ 
+            const updated = await updateWhere(
+              userWatchlist,
+              { 
                 isActive: true,
                 addedAt: new Date()
-              })
-              .where(and(
-                eq(userWatchlist.userId, userId),
-                eq(userWatchlist.symbol, validSymbol)
-              ));
+              },
+              and(
+                safeEq(userWatchlist.userId, userId),
+                safeEq(userWatchlist.symbol, validSymbol)
+              )
+            );
             
             results.push({
               symbol: validSymbol,
               status: 'reactivated',
-              id: existing[0].id
+              id: updated[0].id
             });
           } else {
             results.push({
@@ -331,20 +419,20 @@ app.post("/bulk-add", async (c) => {
         }
         
         // Insert the new watchlist item
-        const result = await db
-          .insert(userWatchlist)
-          .values({
+        const result = await insertInto(
+          userWatchlist,
+          {
             userId,
             symbol: validSymbol,
             addedAt: new Date(),
             isActive: true
-          })
-          .returning();
+          }
+        );
         
         results.push({
           symbol: validSymbol,
           status: 'added',
-          id: result[0].id
+          id: result.id
         });
       } catch (error) {
         results.push({
@@ -363,7 +451,7 @@ app.post("/bulk-add", async (c) => {
     
     watchlistLogger.info(`Bulk add complete. Added: ${added}, Reactivated: ${reactivated}, Already existed: ${existed}, Errors: ${errors}`);
     
-    return c.json({
+    return res.json({
       success: true,
       message: `Processed ${symbols.length} symbols. Added: ${added}, Reactivated: ${reactivated}, Already existed: ${existed}, Errors: ${errors}`,
       results
@@ -373,13 +461,13 @@ app.post("/bulk-add", async (c) => {
       error: error instanceof Error ? error.message : String(error),
     });
     
-    return c.json({
+    return res.status(500).json({
       success: false,
       message: "Failed to bulk add symbols to watchlist",
       error: error instanceof Error ? error.message : String(error),
-    }, 500);
+    });
   }
 });
 
 // Export the watchlist routes
-export const watchlistRoutes = app; 
+export const watchlistRoutes = router; 

@@ -4,7 +4,7 @@ import { z } from "zod";
 // Define environment variable schema with validation
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-  PORT: z.string().default("3001"),
+  PORT: z.string().default("3000"),
   DATABASE_URL: z.string(),
   API_KEY_ALPHA_VANTAGE: z.string().optional(),
   API_KEY_UNUSUAL_WHALES: z.string().optional(),

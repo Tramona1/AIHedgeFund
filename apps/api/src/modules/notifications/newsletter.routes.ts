@@ -1,5 +1,4 @@
-import { Hono } from "hono";
-import { zValidator } from "../../pkg/util/validator-wrapper.js";
+import express, { Request, Response } from "express";
 import { z } from "zod";
 import { logger } from "@repo/logger";
 // @ts-ignore: JS file without types
@@ -24,128 +23,181 @@ const preferencesSchema = z.object({
   preferredDay: z.enum(['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']).optional(),
 });
 
-// Create a router for newsletter preferences
-export const newsletterRoutes = new Hono()
-  // GET /preferences - Get user's newsletter preferences
-  .get("/preferences", async (c) => {
-    try {
-      // Get user ID from auth context
-      // @ts-ignore: Context type is defined in global declaration
-      const userId = c.get("userId") as string;
-      
-      if (!userId) {
-        return c.json({
-          success: false,
-          message: "Unauthorized",
-        }, 401);
-      }
-      
-      const preferences = await newsletterService.getUserPreferences(userId);
-      
-      return c.json({
-        success: true,
-        data: preferences,
-      });
-    } catch (error) {
-      routeLogger.error("Error getting newsletter preferences", { error });
-      return c.json({
+// Extend the Express Request type to include userId and validatedData
+declare module "express-serve-static-core" {
+  interface Request {
+    validatedData: any;
+  }
+}
+
+// Middleware for validating preferences
+const validatePreferences = (req: Request, res: Response, next: express.NextFunction) => {
+  try {
+    const result = preferencesSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({
         success: false,
-        message: "Failed to get newsletter preferences",
-      }, 500);
-    }
-  })
-  
-  // POST /preferences - Update user's newsletter preferences
-  .post("/preferences", zValidator("json", preferencesSchema), async (c) => {
-    try {
-      // Get user ID from auth context
-      // @ts-ignore: Context type is defined in global declaration
-      const userId = c.get("userId") as string;
-      // @ts-ignore: Context type is defined in global declaration
-      const email = c.get("userEmail") as string;
-      
-      if (!userId || !email) {
-        return c.json({
-          success: false,
-          message: "Unauthorized",
-        }, 401);
-      }
-      
-      const preferences = await c.req.json();
-      const updated = await newsletterService.upsertPreferences(userId, email, preferences);
-      
-      return c.json({
-        success: true,
-        data: updated,
+        message: "Invalid preferences data",
+        errors: result.error.format()
       });
-    } catch (error) {
-      routeLogger.error("Error updating newsletter preferences", { error });
-      return c.json({
+    }
+    req.validatedData = result.data;
+    next();
+  } catch (error: any) {
+    routeLogger.error("Preferences validation error", { error });
+    return res.status(400).json({
+      success: false,
+      message: "Validation error",
+      error: error.message
+    });
+  }
+};
+
+// Create an Express router
+const router = express.Router();
+
+// GET /preferences - Get user's newsletter preferences
+router.get("/preferences", async (req: Request, res: Response) => {
+  try {
+    // Get user ID from auth middleware or request
+    const userId = req.headers["x-user-id"] as string;
+    
+    if (!userId) {
+      return res.status(401).json({
         success: false,
-        message: "Failed to update newsletter preferences",
-      }, 500);
+        message: "Unauthorized"
+      });
     }
-  })
-  
-  // POST /subscribe - Subscribe user to newsletter
-  .post("/subscribe", async (c) => {
-    try {
-      // Get user ID from auth context
-      // @ts-ignore: Context type is defined in global declaration
-      const userId = c.get("userId") as string;
-      // @ts-ignore: Context type is defined in global declaration
-      const email = c.get("userEmail") as string;
-      
-      if (!userId || !email) {
-        return c.json({
-          success: false,
-          message: "Unauthorized",
-        }, 401);
-      }
-      
-      // Subscribe user with default preferences
-      const updated = await newsletterService.upsertPreferences(userId, email, {
-        isSubscribed: true,
-      });
-      
-      return c.json({
-        success: true,
-        data: updated,
-      });
-    } catch (error) {
-      routeLogger.error("Error subscribing to newsletter", { error });
-      return c.json({
+    
+    routeLogger.info("Getting newsletter preferences", { userId });
+    
+    const preferences = await newsletterService.getUserPreferences(userId);
+    
+    return res.json({
+      success: true,
+      preferences
+    });
+  } catch (error: any) {
+    routeLogger.error("Error fetching newsletter preferences", { 
+      error: error.message,
+      userId: req.headers["x-user-id"] 
+    });
+    
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch newsletter preferences",
+      error: error.message
+    });
+  }
+});
+
+// POST /preferences - Update user's newsletter preferences
+router.post("/preferences", validatePreferences, async (req: Request, res: Response) => {
+  try {
+    // Get user ID from auth middleware or request
+    const userId = req.headers["x-user-id"] as string;
+    const email = req.headers["x-user-email"] as string;
+    
+    if (!userId || !email) {
+      return res.status(401).json({
         success: false,
-        message: "Failed to subscribe to newsletter",
-      }, 500);
-    }
-  })
-  
-  // POST /unsubscribe - Unsubscribe user from newsletter
-  .post("/unsubscribe", async (c) => {
-    try {
-      // Get user ID from auth context
-      // @ts-ignore: Context type is defined in global declaration
-      const userId = c.get("userId") as string;
-      
-      if (!userId) {
-        return c.json({
-          success: false,
-          message: "Unauthorized",
-        }, 401);
-      }
-      
-      const updated = await newsletterService.toggleSubscription(userId, false);
-      
-      return c.json({
-        success: true,
-        data: updated,
+        message: "Unauthorized - User ID and email required"
       });
-    } catch (error) {
-      routeLogger.error("Error unsubscribing from newsletter", { error });
-      return c.json({
-        success: false,
-        message: "Failed to unsubscribe from newsletter",
-      }, 500);
     }
-  }); 
+    
+    const preferences = req.validatedData;
+    
+    routeLogger.info("Updating newsletter preferences", { userId, preferences });
+    
+    await newsletterService.upsertPreferences(userId, email, preferences);
+    
+    return res.status(200).json({
+      success: true,
+      message: "Newsletter preferences updated successfully"
+    });
+  } catch (error: any) {
+    routeLogger.error("Error updating newsletter preferences", { 
+      error: error.message,
+      userId: req.headers["x-user-id"],
+      preferences: req.body
+    });
+    
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update newsletter preferences",
+      error: error.message
+    });
+  }
+});
+
+// PUT /subscribe - Subscribe to newsletter
+router.put("/subscribe", async (req: Request, res: Response) => {
+  try {
+    // Get user ID from auth middleware or request
+    const userId = req.headers["x-user-id"] as string;
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized"
+      });
+    }
+    
+    routeLogger.info("User subscribing to newsletter", { userId });
+    
+    await newsletterService.toggleSubscription(userId, true);
+    
+    return res.json({
+      success: true,
+      message: "Successfully subscribed to newsletter"
+    });
+  } catch (error: any) {
+    routeLogger.error("Error subscribing to newsletter", { 
+      error: error.message,
+      userId: req.headers["x-user-id"] 
+    });
+    
+    return res.status(500).json({
+      success: false,
+      message: "Failed to subscribe to newsletter",
+      error: error.message
+    });
+  }
+});
+
+// PUT /unsubscribe - Unsubscribe from newsletter
+router.put("/unsubscribe", async (req: Request, res: Response) => {
+  try {
+    // Get user ID from auth middleware or request
+    const userId = req.headers["x-user-id"] as string;
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized"
+      });
+    }
+    
+    routeLogger.info("User unsubscribing from newsletter", { userId });
+    
+    await newsletterService.toggleSubscription(userId, false);
+    
+    return res.json({
+      success: true,
+      message: "Successfully unsubscribed from newsletter"
+    });
+  } catch (error: any) {
+    routeLogger.error("Error unsubscribing from newsletter", { 
+      error: error.message,
+      userId: req.headers["x-user-id"] 
+    });
+    
+    return res.status(500).json({
+      success: false,
+      message: "Failed to unsubscribe from newsletter",
+      error: error.message
+    });
+  }
+});
+
+export const newsletterRoutes = router; 

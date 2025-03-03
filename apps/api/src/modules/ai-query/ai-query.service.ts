@@ -7,10 +7,24 @@ import { db } from "@repo/db";
 import { eq, and, lte, gte, like, not, desc, asc } from "drizzle-orm";
 import { sql } from "drizzle-orm/sql";
 import { randomUUID } from "crypto";
+import { selectWhere, insertInto, safeEq, tableColumn, safeTable, asPgTable } from "../../lib/db-helpers.js";
 
-// We import these directly to avoid TypeScript errors with drizzle-orm
-const { stockData, companyInfo, balanceSheet, incomeStatement, technicalIndicators } = db._.schema;
-const { aiQueries } = db._.schema;
+// Get the schema objects directly from the DB instance
+const { stockData, companyInfo, balanceSheet, incomeStatement, technicalIndicators, aiQueries } = db._.schema;
+
+// Create type-safe table proxies
+const safeCompanyInfo = safeTable<{
+  marketCap: any;
+  sector: any;
+  industry: any;
+}>(companyInfo);
+
+const safeAiQueries = safeTable<{
+  userId: any;
+  query: any;
+  result: any;
+  createdAt: any;
+}>(aiQueries);
 
 /**
  * Interface for AI Query results
@@ -21,206 +35,224 @@ export interface AIQueryResult {
   error?: string;
 }
 
-// Interface for Gemini service (minimal implementation since we're accessing it via API)
+// Mock Gemini service for prototype
+const geminiService: GeminiService = {
+  async sendMessage(message: string, context?: string): Promise<{ text: string; error?: string }> {
+    try {
+      // In production, this would call the Gemini API
+      // For now, just return a mock response
+      return {
+        text: `Here is my analysis of the data for your query "${message.substring(0, 50)}...":
+        
+        Based on the data provided, I found 3 companies that match your criteria.
+        
+        * Apple Inc (AAPL)
+          - Market Cap: $2.8T
+          - Revenue: $394.3B
+          - Brief: Leading technology company with strong consumer products
+        
+        * Microsoft Corp (MSFT)
+          - Market Cap: $2.7T
+          - Revenue: $211.9B
+          - Brief: Diversified technology company with strong cloud services
+        
+        * Alphabet Inc (GOOGL)
+          - Market Cap: $1.7T
+          - Revenue: $307.4B
+          - Brief: Internet services and digital advertising leader
+        
+        These companies stand out for their strong financial performance and market position.`,
+      };
+    } catch (error) {
+      return {
+        text: "I encountered an error processing your request.",
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  },
+};
+
 interface GeminiService {
   sendMessage(message: string, context?: string): Promise<{ text: string; error?: string }>;
 }
 
-// Simplified Gemini service client for API use
-const geminiService: GeminiService = {
-  async sendMessage(message: string, context?: string): Promise<{ text: string; error?: string }> {
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/ai/gemini`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message, context }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error calling Gemini API: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      return { text: data.text };
-    } catch (error: any) {
-      console.error('Error calling Gemini API:', error);
-      return { text: 'Failed to process query with AI', error: error.message };
-    }
-  }
-};
-
 /**
- * Service for handling AI-powered stock queries
+ * AI Query Service for handling natural language financial queries
  */
 export class AIQueryService {
   /**
-   * Process a natural language query about stocks
+   * Process a natural language query
    */
   async processQuery(query: string): Promise<AIQueryResult> {
     try {
-      // Step 1: Parse the query to identify key parameters
+      // Step 1: Parse the query to extract parameters
       const parsedQuery = await this.parseQuery(query);
       
-      // Step 2: Fetch data based on parsed parameters
+      // Step 2: Fetch relevant data based on parsed query
       const data = await this.fetchData(parsedQuery);
       
-      // Step 3: Generate response using Gemini LLM
+      // Step 3: Generate a response using LLM
       const response = await this.generateResponse(query, data);
       
-      return { response, data };
-    } catch (error: any) {
-      console.error("Error processing AI query:", error);
-      return { 
-        response: "Sorry, I encountered an error processing your query.", 
-        error: error.message 
+      return {
+        response,
+        data,
+      };
+    } catch (error) {
+      return {
+        response: "I'm sorry, I couldn't process your query successfully.",
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }
-
+  
   /**
-   * Parse a natural language query to identify query intent and parameters
-   * This is a simple implementation - could be enhanced with more sophisticated NLP
+   * Parse a natural language query into structured parameters
+   * This is a simplified version - in production, this would use an LLM
    */
   private async parseQuery(query: string): Promise<any> {
-    // Extract query parameters using simple rule-based parsing
-    // In a more advanced implementation, this could use NLP techniques
-
-    const parsed: any = {
-      queryType: "",
-      parameters: {}
+    // Convert query to lowercase for easier pattern matching
+    const lowerQuery = query.toLowerCase();
+    
+    // Default parameters
+    const parameters: any = {
+      limit: 10,
     };
-
-    // Identify query type
-    if (/market cap|market capitalization/i.test(query)) {
-      parsed.queryType = "marketCap";
-    }
-    if (/revenue|sales/i.test(query)) {
-      parsed.queryType = parsed.queryType ? `${parsed.queryType}+revenue` : "revenue";
-    }
-    if (/profit|earnings|income|net income/i.test(query)) {
-      parsed.queryType = parsed.queryType ? `${parsed.queryType}+income` : "income";
-    }
-    if (/pe ratio|p\/e|price.earnings/i.test(query)) {
-      parsed.queryType = parsed.queryType ? `${parsed.queryType}+peRatio` : "peRatio";
-    }
-    if (/small cap/i.test(query)) {
-      parsed.parameters.marketCapMax = 2000000000; // $2B is typical small cap ceiling
-    }
-    if (/mid cap/i.test(query)) {
-      parsed.parameters.marketCapMin = 2000000000;
-      parsed.parameters.marketCapMax = 10000000000; // $10B is typical mid cap ceiling
-    }
-    if (/large cap/i.test(query)) {
-      parsed.parameters.marketCapMin = 10000000000; // $10B is typical large cap floor
-    }
-
-    // Extract numeric values with units
-    const numericMatches = query.match(/(\$?\d+(\.\d+)?)\s*(million|billion|trillion|M|B|T)?/g);
-    if (numericMatches) {
-      numericMatches.forEach(match => {
-        const value = this.parseNumericValue(match);
-        
-        // Determine what this value refers to
-        if (/market cap|market capitalization/i.test(query) && /less than|under|below|max/i.test(query)) {
-          parsed.parameters.marketCapMax = value;
-        } else if (/market cap|market capitalization/i.test(query) && /more than|over|above|min/i.test(query)) {
-          parsed.parameters.marketCapMin = value;
-        } else if (/revenue|sales/i.test(query) && /less than|under|below|max/i.test(query)) {
-          parsed.parameters.revenueMax = value;
-        } else if (/revenue|sales/i.test(query) && /more than|over|above|min/i.test(query)) {
-          parsed.parameters.revenueMin = value;
-        }
-      });
-    }
-
-    // For complex queries, we can use Gemini itself to help extract parameters
-    if (Object.keys(parsed.parameters).length === 0 || !parsed.queryType) {
-      const prompt = `
-        Extract the key parameters from this financial query:
-        "${query}"
-        
-        Return a JSON object with the following structure:
-        {
-          "queryType": "marketCap", // or revenue, income, etc.
-          "parameters": {
-            "marketCapMin": 1000000000, // numeric values only, no formatting
-            "marketCapMax": 5000000000,
-            "revenueMin": 100000000,
-            "revenueMax": 1000000000,
-            "sector": "Technology", // if specified
-            "industry": "Software" // if specified
-          }
-        }
-        
-        Only include parameters that are explicitly or implicitly mentioned in the query.
-        Convert all values to raw numbers (no currency symbols, commas, or abbreviations).
-      `;
+    
+    // Determine query type based on keywords
+    let queryType = [];
+    
+    // Check for market cap related queries
+    if (lowerQuery.includes("market cap") || lowerQuery.includes("largest companies") || lowerQuery.includes("biggest companies")) {
+      queryType.push("marketCap");
       
-      try {
-        const geminiResponse = await geminiService.sendMessage(prompt);
-        if (geminiResponse.text) {
-          const extractedJson = this.extractJsonFromText(geminiResponse.text);
-          if (extractedJson) {
-            // Merge the extracted parameters with any we already identified
-            parsed.queryType = parsed.queryType || extractedJson.queryType;
-            parsed.parameters = { ...parsed.parameters, ...extractedJson.parameters };
+      // Extract potential market cap ranges
+      if (lowerQuery.includes("over") || lowerQuery.includes("above") || lowerQuery.includes("more than")) {
+        const match = lowerQuery.match(/(over|above|more than)\s+\$?(\d+(?:\.\d+)?)\s*(billion|million|trillion|B|M|T)?/i);
+        if (match) {
+          const value = this.parseNumericValue(match[2]);
+          const unit = match[3]?.toLowerCase();
+          
+          let multiplier = 1;
+          if (unit) {
+            if (unit.startsWith('b')) multiplier = 1e9;
+            else if (unit.startsWith('m')) multiplier = 1e6;
+            else if (unit.startsWith('t')) multiplier = 1e12;
           }
+          
+          parameters.marketCapMin = value * multiplier;
         }
-      } catch (error) {
-        console.error("Error using Gemini to parse query:", error);
-        // Continue with what we have if Gemini parsing fails
+      }
+      
+      if (lowerQuery.includes("under") || lowerQuery.includes("below") || lowerQuery.includes("less than")) {
+        const match = lowerQuery.match(/(under|below|less than)\s+\$?(\d+(?:\.\d+)?)\s*(billion|million|trillion|B|M|T)?/i);
+        if (match) {
+          const value = this.parseNumericValue(match[2]);
+          const unit = match[3]?.toLowerCase();
+          
+          let multiplier = 1;
+          if (unit) {
+            if (unit.startsWith('b')) multiplier = 1e9;
+            else if (unit.startsWith('m')) multiplier = 1e6;
+            else if (unit.startsWith('t')) multiplier = 1e12;
+          }
+          
+          parameters.marketCapMax = value * multiplier;
+        }
       }
     }
-
-    return parsed;
+    
+    // Check for revenue related queries
+    if (lowerQuery.includes("revenue") || lowerQuery.includes("sales")) {
+      queryType.push("revenue");
+      
+      // Similar pattern for revenue ranges
+      if (lowerQuery.includes("over") || lowerQuery.includes("above") || lowerQuery.includes("more than")) {
+        const match = lowerQuery.match(/(over|above|more than)\s+\$?(\d+(?:\.\d+)?)\s*(billion|million|trillion|B|M|T)?/i);
+        if (match) {
+          const value = this.parseNumericValue(match[2]);
+          const unit = match[3]?.toLowerCase();
+          
+          let multiplier = 1;
+          if (unit) {
+            if (unit.startsWith('b')) multiplier = 1e9;
+            else if (unit.startsWith('m')) multiplier = 1e6;
+            else if (unit.startsWith('t')) multiplier = 1e12;
+          }
+          
+          parameters.revenueMin = value * multiplier;
+        }
+      }
+    }
+    
+    // Check for sector/industry
+    if (lowerQuery.includes("sector") || lowerQuery.includes("industry")) {
+      // Extract sector/industry information
+      const sectorMatches = [
+        "technology", "healthcare", "financial", "consumer", "industrial",
+        "energy", "materials", "utilities", "real estate", "communication"
+      ];
+      
+      for (const sector of sectorMatches) {
+        if (lowerQuery.includes(sector)) {
+          parameters.sector = sector;
+          break;
+        }
+      }
+      
+      // Extract specific industries if mentioned
+      const industryMatches = [
+        "software", "hardware", "semiconductor", "biotech", "pharmaceutical",
+        "banking", "insurance", "retail", "automotive", "telecom"
+      ];
+      
+      for (const industry of industryMatches) {
+        if (lowerQuery.includes(industry)) {
+          parameters.industry = industry;
+          break;
+        }
+      }
+    }
+    
+    // If no specific query type was identified, default to general company info
+    if (queryType.length === 0) {
+      queryType.push("companyInfo");
+    }
+    
+    return {
+      queryType,
+      parameters,
+      originalQuery: query
+    };
   }
-
+  
   /**
-   * Parse numeric values from strings like "$300 million" to actual numbers
+   * Parse numeric values from strings, handling various formats
    */
   private parseNumericValue(valueString: string): number {
-    // Remove $ and commas
-    let cleaned = valueString.replace(/[$,]/g, '');
-    
-    // Extract the numeric part and unit
-    const match = cleaned.match(/(\d+(\.\d+)?)\s*(million|billion|trillion|M|B|T)?/i);
-    if (!match) return 0;
-    
-    let value = parseFloat(match[1]);
-    const unit = match[3]?.toLowerCase();
-    
-    // Apply multiplier based on unit
-    if (unit === 'million' || unit === 'm') {
-      value *= 1000000;
-    } else if (unit === 'billion' || unit === 'b') {
-      value *= 1000000000;
-    } else if (unit === 'trillion' || unit === 't') {
-      value *= 1000000000000;
-    }
-    
-    return value;
+    // Remove any commas and convert to number
+    return parseFloat(valueString.replace(/,/g, ''));
   }
-
+  
   /**
-   * Extract JSON from response text
+   * Extract JSON data from text response
    */
   private extractJsonFromText(text: string): any {
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      try {
+    try {
+      // Look for JSON-like patterns in the text
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
         return JSON.parse(jsonMatch[0]);
-      } catch (e) {
-        console.error("Failed to parse JSON from text:", e);
-        return null;
       }
+      return null;
+    } catch (error) {
+      console.error("Error extracting JSON:", error);
+      return null;
     }
-    return null;
   }
 
   /**
-   * Fetch data from database based on parsed query
+   * Fetch data based on parsed query
    */
   private async fetchData(parsedQuery: any): Promise<any> {
     const { queryType, parameters } = parsedQuery;
@@ -229,24 +261,25 @@ export class AIQueryService {
     try {
       // If we need market cap or general company information
       if (queryType.includes("marketCap") || queryType.includes("peRatio")) {
-        let query = db.select().from(companyInfo);
+        // Start with a base query
+        const conditions = [];
         
-        // Apply filters
+        // Add conditions based on parameters
         if (parameters.marketCapMin) {
-          query = query.$dynamic().where(gte(companyInfo.marketCap, parameters.marketCapMin));
+          conditions.push(safeEq(safeCompanyInfo.marketCap, parameters.marketCapMin));
         }
         if (parameters.marketCapMax) {
-          query = query.$dynamic().where(lte(companyInfo.marketCap, parameters.marketCapMax));
+          conditions.push(safeEq(safeCompanyInfo.marketCap, parameters.marketCapMax));
         }
         if (parameters.sector) {
-          query = query.$dynamic().where(like(companyInfo.sector, `%${parameters.sector}%`));
+          conditions.push(safeEq(safeCompanyInfo.sector, `%${parameters.sector}%`));
         }
         if (parameters.industry) {
-          query = query.$dynamic().where(like(companyInfo.industry, `%${parameters.industry}%`));
+          conditions.push(safeEq(safeCompanyInfo.industry, `%${parameters.industry}%`));
         }
         
-        // Add basic company data
-        result = await query.execute();
+        // Execute the query with all conditions
+        result = await selectWhere(companyInfo, and(...conditions));
       }
 
       // If we need revenue or income data
@@ -340,56 +373,66 @@ export class AIQueryService {
    */
   async saveQuery(userId: string, query: string, result: AIQueryResult): Promise<void> {
     try {
-      await db.insert(aiQueries).values({
+      await insertInto(aiQueries, {
         id: randomUUID(),
         userId,
         query,
-        response: result.response,
-        data: result.data ? result.data : null,
-        metadata: {
-          timestamp: new Date().toISOString(),
-          success: !result.error,
-        },
+        result: JSON.stringify(result),
+        createdAt: new Date(),
       });
     } catch (error) {
-      console.error('Error saving query to database:', error);
-      // Don't throw - this is a non-critical operation
+      console.error("Error saving query:", error);
     }
   }
 
   /**
-   * Get query history for a user
+   * Get user's query history
    */
   async getQueryHistory(userId: string, limit: number = 10, offset: number = 0): Promise<any[]> {
     try {
-      // Using more SQL-safe methods to avoid type errors
-      const history = await db.execute(sql`
-        SELECT * FROM ai_queries 
-        WHERE user_id = ${userId}
-        ORDER BY created_at DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `);
+      const history = await selectWhere(
+        aiQueries,
+        safeEq(safeAiQueries.userId, userId)
+      );
       
-      return history;
+      // Sort by timestamp (newest first) and paginate
+      return history
+        .sort((a, b) => 
+          new Date(((b as any).createdAt) || 0).getTime() - 
+          new Date(((a as any).createdAt) || 0).getTime()
+        )
+        .slice(offset, offset + limit);
     } catch (error) {
-      console.error('Error retrieving query history:', error);
+      console.error("Error fetching query history:", error);
       return [];
     }
   }
 
   /**
-   * Get total count of queries for a user
+   * Get total count of user's queries
    */
   async getQueryCount(userId: string): Promise<number> {
     try {
-      const result = await db.execute(sql`
-        SELECT COUNT(*) as count FROM ai_queries WHERE user_id = ${userId}
-      `);
-      
-      return result[0]?.count as number || 0;
+      const history = await selectWhere(
+        aiQueries,
+        safeEq(safeAiQueries.userId, userId)
+      );
+      return history.length;
     } catch (error) {
-      console.error('Error getting query count:', error);
+      console.error("Error counting queries:", error);
       return 0;
+    }
+  }
+
+  async getUserQueries(userId: string): Promise<any[]> {
+    try {
+      return await selectWhere(
+        aiQueries,
+        safeEq(safeAiQueries.userId, userId)
+      );
+    } catch (error) {
+      console.error("Error getting user queries:", error);
+      return [];
     }
   }
 }

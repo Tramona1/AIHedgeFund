@@ -1,5 +1,4 @@
-import { Hono } from 'hono';
-import { zValidator } from '@hono/zod-validator';
+import express, { Request, Response } from 'express';
 import { z } from 'zod';
 import { unusualWhalesScheduler } from './collection-scheduler.js';
 import { runUnusualWhalesScheduledTasks } from './scheduled-tasks.js';
@@ -9,19 +8,19 @@ import { logger } from '@repo/logger';
 const routesLogger = logger.child({ module: 'unusual-whales-scheduled-tasks-routes' });
 
 // Create a router
-const app = new Hono();
+const router = express.Router();
 
 /**
  * POST /api/unusual-whales/tasks/run-all
  * Manually trigger all scheduled tasks for Unusual Whales data
  */
-app.post('/run-all', async (c) => {
+router.post('/run-all', async (req: Request, res: Response) => {
   try {
     routesLogger.info('Manual trigger of all Unusual Whales scheduled tasks');
     
     const results = await runUnusualWhalesScheduledTasks();
     
-    return c.json({
+    return res.json({
       success: true,
       results
     });
@@ -30,10 +29,10 @@ app.post('/run-all', async (c) => {
       error: error instanceof Error ? error.message : String(error)
     });
     
-    return c.json({
+    return res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : String(error)
-    }, 500);
+    });
   }
 });
 
@@ -41,13 +40,13 @@ app.post('/run-all', async (c) => {
  * POST /api/unusual-whales/tasks/collect-data
  * Manually trigger collection of Unusual Whales data
  */
-app.post('/collect-data', async (c) => {
+router.post('/collect-data', async (req: Request, res: Response) => {
   try {
     routesLogger.info('Manual trigger of Unusual Whales data collection');
     
     const results = await unusualWhalesScheduler.forceCollectUnusualWhalesData();
     
-    return c.json({
+    return res.json({
       success: true,
       results
     });
@@ -56,10 +55,10 @@ app.post('/collect-data', async (c) => {
       error: error instanceof Error ? error.message : String(error)
     });
     
-    return c.json({
+    return res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : String(error)
-    }, 500);
+    });
   }
 });
 
@@ -67,12 +66,12 @@ app.post('/collect-data', async (c) => {
  * GET /api/unusual-whales/tasks/status
  * Get the status of the Unusual Whales scheduler
  */
-app.get('/status', async (c) => {
+router.get('/status', async (req: Request, res: Response) => {
   try {
     // Get scheduler status
     const status = unusualWhalesScheduler.getStatus();
     
-    return c.json({
+    return res.json({
       success: true,
       status
     });
@@ -81,11 +80,11 @@ app.get('/status', async (c) => {
       error: error instanceof Error ? error.message : String(error)
     });
     
-    return c.json({
+    return res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : String(error)
-    }, 500);
+    });
   }
 });
 
-export const unusualWhalesScheduledTasksRoutes = app; 
+export const unusualWhalesScheduledTasksRoutes = router; 

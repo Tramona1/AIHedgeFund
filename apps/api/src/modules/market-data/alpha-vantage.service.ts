@@ -1,5 +1,6 @@
 import { logger } from "@repo/logger";
 import fetch from "node-fetch";
+import { env } from "../../env.js";
 
 // Create a module-specific logger
 const alphaVantageLogger = logger.child({ module: "alpha-vantage-service" });
@@ -13,10 +14,10 @@ export class AlphaVantageService {
   private baseUrl = "https://www.alphavantage.co/query";
   
   constructor() {
-    this.apiKey = process.env.ALPHA_VANTAGE_API_KEY || "";
+    this.apiKey = env.API_KEY_ALPHA_VANTAGE || "";
     
     if (!this.apiKey) {
-      const error = "ALPHA_VANTAGE_API_KEY is not configured in environment variables";
+      const error = "API_KEY_ALPHA_VANTAGE is not configured in environment variables";
       alphaVantageLogger.error(error);
       throw new Error(error);
     }
@@ -27,20 +28,22 @@ export class AlphaVantageService {
    */
   private async makeRequest(params: Record<string, string>): Promise<any> {
     try {
-      // Build URL with parameters
-      const urlParams = new URLSearchParams({
+      // Add API key to parameters
+      const queryParams = new URLSearchParams({
         ...params,
         apikey: this.apiKey
       });
       
-      const url = `${this.baseUrl}?${urlParams.toString()}`;
+      // Construct the full URL
+      const url = `${this.baseUrl}?${queryParams.toString()}`;
       
-      // Make the request (without sensitive info in logs)
-      alphaVantageLogger.info("Making Alpha Vantage API request", { 
-        function: params.function,
+      // Log the API request (without the API key for security)
+      alphaVantageLogger.info(`Making Alpha Vantage API request`, {
+        endpoint: params.function,
         symbol: params.symbol
       });
       
+      // @ts-ignore - fetch should be callable
       const response = await fetch(url);
       
       if (!response.ok) {
@@ -49,34 +52,23 @@ export class AlphaVantageService {
       
       const data = await response.json();
       
-      // Check for API error responses
+      // Check for API error messages
       if (data["Error Message"]) {
-        throw new Error(`Alpha Vantage API error: ${data["Error Message"]}`);
+        throw new Error(`Alpha Vantage API Error: ${data["Error Message"]}`);
       }
       
-      if (data["Information"]) {
-        alphaVantageLogger.warn(`Alpha Vantage API information message: ${data["Information"]}`);
-        // If this is a limit message, still return null to indicate failure
-        if (data["Information"].includes("limit")) {
-          throw new Error(`API rate limit exceeded: ${data["Information"]}`);
-        }
-      }
-      
-      if (data["Note"]) {
-        alphaVantageLogger.warn(`Alpha Vantage API note: ${data["Note"]}`);
-        if (data["Note"].includes("limit")) {
-          throw new Error(`API rate limit exceeded: ${data["Note"]}`);
-        }
+      // Check for information messages (e.g., exceeded API calls)
+      if (data.Note || data.Information) {
+        const message = data.Note || data.Information;
+        alphaVantageLogger.warn(`Alpha Vantage API message: ${message}`);
       }
       
       return data;
     } catch (error) {
       alphaVantageLogger.error("Error making Alpha Vantage API request", { 
         error: error instanceof Error ? error.message : String(error),
-        function: params.function, 
-        symbol: params.symbol
+        params
       });
-      
       throw error;
     }
   }

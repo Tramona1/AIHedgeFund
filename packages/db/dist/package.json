@@ -3,10 +3,21 @@
   "version": "0.1.0",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./schema": {
+      "import": "./dist/schema/index.js",
+      "types": "./dist/schema/index.d.ts"
+    }
+  },
   "license": "MIT",
   "scripts": {
     "build:ts": "tsc -p tsconfig.build.json",
-    "build": "rm -rf dist && find src -name '*.d.ts' -delete && npm run build:ts && mkdir -p dist/schema && cp package.json dist/ && cp src/schema/*.ts dist/schema/ && cp src/types.ts dist/",
+    "build": "rm -rf dist && find src -name '*.d.ts' -delete && npm run build:ts && mkdir -p dist/schema && cp src/schema/* dist/schema/ && cp package.json dist/ && cp src/types.ts dist/ && cp src/utils.ts dist/",
     "build:tsup": "tsup",
     "dev": "tsup --watch",
     "lint": "eslint src/",

@@ -8,6 +8,8 @@ declare module '@repo/db/schema' {
   export const newsletterPreferences: any;
   export const unusualWhales: any;
   // Add other tables as needed
+  // Import the schema types from the actual package
+  export * from '@repo/db/dist/schema/index';
 }
 
 declare module '@repo/db/schema/index.js' {

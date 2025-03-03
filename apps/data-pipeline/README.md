@@ -1,254 +1,127 @@
-# AI Hedge Fund - Data Pipeline
+# Financial Data Pipeline
 
-This module is responsible for fetching and processing various financial data sources including market data, SEC filings, social media mentions, and more.
+This module contains the data pipeline responsible for collecting financial data from various sources and storing it in the Supabase database. The data is then displayed in the web application's Financial Data dashboard.
 
-## Setup and Running
+## Data Sources
 
-### Quick Start with Lite Version
-The lite version has minimal dependencies and runs directly with your system Python:
+The pipeline collects data from the following sources:
 
-```bash
-# Install minimal dependencies
-pip3 install python-dotenv schedule
-
-# Run directly
-python3 main_scheduler_lite.py --dev
-
-# Or use pnpm from the project root
-pnpm run dev:lite
-
-# Or use the shell script
-./run_pipeline.sh --lite --dev
-```
-
-### Full Version Setup
-The full version uses a virtual environment and has more dependencies:
-
-```bash
-# Set up the virtual environment and install dependencies
-pnpm --filter data-pipeline run setup
-# Or manually:
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-
-# Run with the virtual environment
-pnpm --filter data-pipeline run dev
-# Or manually:
-source venv/bin/activate
-python3 main_scheduler.py --dev
-# Or use the shell script:
-./run_pipeline.sh --dev
-```
-
-## Troubleshooting
-
-If you encounter dependency issues:
-
-1. **Try the lite version first**: Use the `--lite` flag with `run_pipeline.sh` or run `main_scheduler_lite.py` directly
-2. **Missing modules**: If you see errors about missing modules, install them individually:
-   ```
-   pip3 install <missing-module-name>
-   ```
-3. **Python version**: Some dependencies may require specific Python versions (try 3.9 to 3.11)
-
-## Available Scripts
-
-- `npm run setup`: Creates a virtual environment and installs dependencies
-- `npm run setup:lite`: Installs minimal dependencies for the lite version without venv
-- `npm run start`: Runs the full scheduler
-- `npm run start:lite`: Runs the lite version of the scheduler
-- `npm run dev`: Runs the full scheduler in development mode
-- `npm run dev:lite`: Runs the lite version in development mode
-- `npm run test`: Runs tests for the data pipeline
-
-## run_pipeline.sh
-
-This script provides a convenient way to run the data pipeline:
-
-- For lite version: `./run_pipeline.sh --lite [other args]`
-- For full version: `./run_pipeline.sh [args]`
-
-The lite version runs with system Python directly, while the full version sets up a virtual environment with more dependencies.
-
-## Components
-
-The data pipeline consists of the following components:
-
-- **Scheduler (`scheduler.py`)**: Main coordinator that schedules and runs all data collection jobs at specified intervals.
-- **Market Data Fetcher (`market_data_fetcher.py`)**: Fetches market data from Yahoo Finance and Alpha Vantage, including prices, volumes, technical indicators (RSI, MACD), top gainers/losers, and most active stocks.
-- **SEC EDGAR Fetcher (`sec_edgar_fetcher.py`)**: Retrieves SEC filings from the EDGAR database, focusing on forms like 13F, 13D, and Form 4.
-- **Twitter Scraper (`twitter_scraper.py`)**: Monitors Twitter for investor activities and stock mentions.
-- **Dark Pool Processor (`dark_pool_processor.py`)**: Processes dark pool trading data to identify significant block trades.
-- **Option Flow Processor (`option_flow_processor.py`)**: Analyzes options flow data to identify unusual activities and sentiment.
-- **Holdings Change Detector (`holdings_change_detector.py`)**: Detects changes in stock holdings from SEC filings and generates alerts.
-- **Fundamental Analyzer (`fundamental_analyzer.py`)**: Analyzes company financial statements (income statements, balance sheets, cash flows) and generates insights using AI.
-- **Economic Indicator Fetcher (`economic_indicator_fetcher.py`)**: Collects economic data from Alpha Vantage and FRED, including GDP, inflation, unemployment, and more.
-- **Dashboard Server (`dashboard_server.py`)**: Flask-based API server that provides endpoints for the Next.js frontend.
-
-## Trader vs. Investor Mode
-
-The data pipeline supports two different user types with distinct data needs:
-
-- **Trader Mode**: Focuses on frequently updated market data, technical indicators, and short-term signals.
-  - Market data updates every 15 minutes
-  - Twitter data updates every 30 minutes
-  - Options flow updates hourly
-  - Dark pool data updates every 2 hours
-
-- **Investor Mode**: Focuses on less frequent updates with more fundamental and economic data.
-  - Market data updates every 4 hours
-  - SEC filings update every 4 hours
-  - Holdings change detection every 4 hours
-  - Fundamental data updates every 12 hours
-  - Economic indicators update every 6 hours
-
-You can set the mode using the `USER_TYPE` environment variable (values: `trader`, `investor`, or `both`).
+1. **Bank Reports** - Research reports from major investment banks
+2. **YouTube Videos** - Financial analysis videos from reputable channels
+3. **Insider Trades** - SEC Form 4 filings from company insiders
+4. **Political Trades** - Stock transactions by members of Congress
+5. **Hedge Fund Trades** - 13F filings from major hedge funds
+6. **Financial News** - Market news from various sources
+7. **Analyst Ratings** - Price target changes and rating updates
 
 ## Setup
 
-### Prerequisites
+1. Clone the repository
+2. Install dependencies with `pip install -r requirements.txt` and `pip install -r requirements-additional.txt`
+3. Copy `.env.example` to `.env` and fill in the required API keys
+4. Run the setup script with `python setup.py`
 
-- Python 3.9 or higher
-- Supabase account (for database)
-- Twitter API credentials (X Bearer Token)
-- Alpha Vantage API key
-- OpenAI API key (for fundamental data insights)
-- FRED API key (optional, for additional economic data)
+## Environment Variables
 
-### Installation
+The following environment variables are required:
 
-1. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-2. **Set up environment variables**:
-   Copy the `.env.example` file to `.env` and fill in your credentials:
-   ```bash
-   cp .env.example .env
-   ```
-   
-   Edit the `.env` file with your:
-   - Supabase URL and key
-   - X (Twitter) Bearer Token
-   - Alpha Vantage API key
-   - OpenAI API key
-   - FRED API key (optional)
-   - User type (trader, investor, or both)
-   - API URL for local development
-
-3. **Database setup**:
-   The scripts expect the following tables to exist in your Supabase database:
-   - `market_data`
-   - `sec_filings`
-   - `twitter_data`
-   - `dark_pool_data`
-   - `option_flow_data`
-   - `holdings_alerts`
-   - `tracked_investors`
-   - `investor_holdings`
-   - `tracked_twitter_accounts`
-   - `fundamental_data`
-   - `economic_indicators`
-   - `economic_news`
-   - `top_stocks`
-   - `earnings_calendar`
+- `SUPABASE_URL` - URL of your Supabase instance
+- `SUPABASE_KEY` - API key for Supabase access
+- `YOUTUBE_API_KEY` - Google API key with YouTube Data API access
+- `GOOGLE_API_KEY` - Google API key for generating AI summaries
+- `EMAIL_USERNAME`, `EMAIL_PASSWORD`, `EMAIL_SERVER`, `EMAIL_PORT` - Email account for bank reports
+- `UNUSUAL_WHALES_API_KEY` - API key for insider and political trades
+- `WHALEWISDOM_API_KEY` - API key for hedge fund holdings data
+- `NEWS_API_KEY`, `FINANCIAL_TIMES_API_KEY`, `BLOOMBERG_API_KEY` - News API keys
 
 ## Running the Pipeline
 
-### Run the Main Scheduler
+### Manual Execution
 
-The scheduler will start all the data pipeline components at scheduled intervals:
-
-```bash
-python scheduler.py
-```
-
-### Run Individual Components
-
-You can also run individual components directly:
+You can run the entire pipeline at once:
 
 ```bash
-# Market data
-python market_data_fetcher.py
-
-# SEC EDGAR data
-python sec_edgar_fetcher.py
-
-# Twitter data
-python twitter_scraper.py
-
-# Dark pool data
-python dark_pool_processor.py
-
-# Option flow data
-python option_flow_processor.py
-
-# Holdings change detection
-python holdings_change_detector.py
-
-# Fundamental analysis
-python fundamental_analyzer.py
-
-# Economic indicator data
-python economic_indicator_fetcher.py
+python run_all_fetchers.py
 ```
 
-### Dashboard Server
-
-The dashboard server runs on port 5000 by default:
+Or run individual fetchers:
 
 ```bash
-python dashboard_server.py
+python bank_reports_fetcher.py
+python youtube_videos_fetcher.py
+python insider_trades_fetcher.py
+python political_trades_fetcher.py
+python hedge_fund_trades_fetcher.py
+python financial_news_fetcher.py
 ```
 
-The server provides various API endpoints for the frontend, including:
-- `/api/market/summary` - Market data summary
-- `/api/market/top-stocks` - Top gainers, losers, and most active stocks
-- `/api/market/earnings` - Upcoming earnings calendar
-- `/api/market/technical-indicators` - Technical indicators (RSI, MACD)
-- `/api/filings/recent` - Recent SEC filings
-- `/api/twitter/recent` - Recent Twitter mentions
-- `/api/dark-pool/recent` - Recent dark pool activity
-- `/api/option-flow/recent` - Recent option flow data
-- `/api/alerts/recent` - Recent holdings change alerts
-- `/api/fundamentals` - Company fundamental data and insights
-- `/api/economic-indicators` - Economic indicator data
-- `/api/economic-news` - Economic news with sentiment
-- `/api/dashboard/summary` - Combined dashboard summary
+### Scheduled Execution
 
-## Configuration
+The main scheduler runs all fetchers according to their optimal schedule:
 
-### Tracked Tickers
-
-By default, the pipeline tracks the following tickers:
-`AAPL, MSFT, AMZN, GOOG, META, NVDA, TSLA, AMD, JPM, BAC`
-
-To track different tickers, set the `TRACKED_TICKERS` environment variable as a comma-separated list:
-
-```
-TRACKED_TICKERS=AAPL,MSFT,TSLA,NVDA,AMC,GME
+```bash
+python main_scheduler.py
 ```
 
-### User Type
+## API Integration
 
-Set the user type to determine which data collectors run and how frequently:
+### Unusual Whales API
 
+The `unusual_whales_api.py` module provides integration with the Unusual Whales API for insider trading, political trading, and analyst sentiment data. It handles rate limiting, caching, and error handling.
+
+Example usage:
+
+```python
+from unusual_whales_api import get_insider_trades, get_political_trades, get_analyst_ratings
+
+# Fetch insider trades from the last 14 days
+insider_trades = get_insider_trades(days=14, limit=100)
+
+# Fetch political trades with Democratic party filter
+political_trades = get_political_trades(days=30, party="Democratic", limit=100)
+
+# Fetch analyst upgrades only
+ratings = get_analyst_ratings(days=7, rating_change="upgrade", limit=100)
 ```
-USER_TYPE=trader   # For frequent market data updates
-USER_TYPE=investor # For fundamental and economic data focus
-USER_TYPE=both     # For all data collectors (default)
-```
 
-## Development Notes
+## Database Schema
 
-- This is a data pipeline for collecting and processing financial data - not for making trading decisions.
-- Some components use simulated data where real APIs aren't available (e.g., dark pool data).
-- The SEC EDGAR fetcher respects SEC rate limits (10 requests per second).
-- Alpha Vantage has rate limits (5 calls per minute on free plan) - the code includes appropriate delays.
-- For production use, you would need to subscribe to professional data providers for some data types.
+The Supabase database contains the following tables:
 
-## Connecting to the Frontend
+- `bank_reports`
+- `youtube_videos`
+- `insider_trades`
+- `political_trades`
+- `hedge_fund_trades`
+- `financial_news`
+- `analyst_ratings`
 
-The dashboard server connects to the Next.js frontend through API endpoints. Make sure the `API_URL` in your frontend's environment points to the dashboard server (default: `http://localhost:5000`). 
+See `supabase-add-tables.sql` for detailed schema information.
+
+## Processing Flow
+
+1. **Fetching**: Data is retrieved from external APIs and sources
+2. **Processing**: Data is cleaned, normalized, and enriched
+3. **Analysis**: AI-generated summaries and sentiment analysis are added
+4. **Storage**: Processed data is stored in Supabase
+5. **Display**: Data is served via API endpoints to the web application
+
+## Troubleshooting
+
+If you encounter issues:
+
+1. Check your API keys in the `.env` file
+2. Verify network connectivity to external APIs
+3. Check Supabase connection settings
+4. Look for error logs in the console output
+5. Clear the cache with `python -c "from unusual_whales_api import clear_cache; clear_cache()"`
+
+## Contributing
+
+To add a new data source:
+
+1. Create a new fetcher file (e.g., `new_source_fetcher.py`)
+2. Implement the fetcher class with `fetch`, `process`, and `store` methods
+3. Add the new fetcher to `run_all_fetchers.py`
+4. Update the database schema if necessary
+5. Add appropriate API endpoints in the web application 

@@ -1,9 +1,18 @@
 
 
 > api@0.1.0 build /Users/blakesingleton/Desktop/AIHedgeFund/apps/api
-> bun build src/index.ts --outdir ./dist --target bun --external @repo/*
+> npm run build:compile && npm run build:prepare && npm run build:copy
 
 
-  ./index.js  1325.41 KB
+> api@0.1.0 build:compile
+> tsc -p tsconfig.build.json
 
-[0m[2m[[1m49ms[0m[2m][0m [32mbundle[0m 347 modules
+[1G[0K[1G[0K⠙[1G[0K
+> api@0.1.0 build:prepare
+> mkdir -p dist/node_modules/@repo/db dist/node_modules/@repo/id dist/node_modules/@repo/logger
+
+[1G[0K[1G[0K⠙[1G[0K
+> api@0.1.0 build:copy
+> cp -r ../../packages/db/dist/* dist/node_modules/@repo/db/ && cp -r ../../packages/id/dist/* dist/node_modules/@repo/id/ && cp -r ../../packages/logger/dist/* dist/node_modules/@repo/logger/
+
+[1G[0K[1G[0K⠙[1G[0K

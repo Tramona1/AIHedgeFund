@@ -1,15 +1,21 @@
-import { Hono } from "hono";
+import express, { Request, Response } from "express";
 import { logger } from "@repo/logger";
-import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { unusualWhalesService } from "./unusual-whales.service.js";
 import { unusualWhalesCollectionService } from "./unusual-whales-collection.service.js";
 
+// Extend the Express Request type to include validatedQuery
+declare module "express-serve-static-core" {
+  interface Request {
+    validatedQuery: any;
+  }
+}
+
 // Create a module-specific logger
 const whalesLogger = logger.child({ module: "unusual-whales-routes" });
 
-// Create a Hono app for the unusual whales routes
-const app = new Hono();
+// Create Express router
+const router = express.Router();
 
 // Schema for pagination and filtering
 const optionsFlowQuerySchema = z.object({
@@ -31,13 +37,76 @@ const darkPoolQuerySchema = z.object({
   dateTo: z.string().optional()
 });
 
+// Middleware for validating options flow query parameters
+const validateOptionsFlowQuery = (req, res, next) => {
+  try {
+    const query = {
+      page: req.query.page ? parseInt(req.query.page) : 1,
+      pageSize: req.query.pageSize ? parseInt(req.query.pageSize) : 20,
+      minVolume: req.query.minVolume ? parseInt(req.query.minVolume) : undefined,
+      ticker: req.query.ticker,
+      sentiment: req.query.sentiment,
+      dateFrom: req.query.dateFrom,
+      dateTo: req.query.dateTo
+    };
+    
+    const result = optionsFlowQuerySchema.safeParse(query);
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        error: result.error.format()
+      });
+    }
+    
+    req.validatedQuery = result.data;
+    next();
+  } catch (error) {
+    whalesLogger.error("Validation error", { error });
+    return res.status(400).json({
+      success: false,
+      error: "Invalid query parameters"
+    });
+  }
+};
+
+// Middleware for validating dark pool query parameters
+const validateDarkPoolQuery = (req, res, next) => {
+  try {
+    const query = {
+      page: req.query.page ? parseInt(req.query.page) : 1,
+      pageSize: req.query.pageSize ? parseInt(req.query.pageSize) : 20,
+      minVolume: req.query.minVolume ? parseInt(req.query.minVolume) : undefined,
+      ticker: req.query.ticker,
+      dateFrom: req.query.dateFrom,
+      dateTo: req.query.dateTo
+    };
+    
+    const result = darkPoolQuerySchema.safeParse(query);
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        error: result.error.format()
+      });
+    }
+    
+    req.validatedQuery = result.data;
+    next();
+  } catch (error) {
+    whalesLogger.error("Validation error", { error });
+    return res.status(400).json({
+      success: false,
+      error: "Invalid query parameters"
+    });
+  }
+};
+
 /**
  * Get options flow data with pagination and filtering
  * GET /api/market-data/unusual-whales/options-flow
  */
-app.get('/options-flow', zValidator('query', optionsFlowQuerySchema), async (c) => {
+router.get('/options-flow', validateOptionsFlowQuery, async (req, res) => {
   try {
-    const query = c.req.valid('query');
+    const query = req.validatedQuery;
     whalesLogger.info(`Getting options flow data`, { query });
     
     const { data, totalCount, page, pageSize } = await unusualWhalesCollectionService.getOptionsFlow(
@@ -52,7 +121,7 @@ app.get('/options-flow', zValidator('query', optionsFlowQuerySchema), async (c) 
       }
     );
     
-    return c.json({ 
+    return res.json({ 
       success: true, 
       data,
       pagination: {
@@ -67,11 +136,11 @@ app.get('/options-flow', zValidator('query', optionsFlowQuerySchema), async (c) 
       error: error instanceof Error ? error.message : String(error) 
     });
     
-    return c.json({
+    return res.status(500).json({
       success: false,
       message: 'Failed to get options flow data',
       error: error instanceof Error ? error.message : String(error)
-    }, 500);
+    });
   }
 });
 
@@ -79,9 +148,9 @@ app.get('/options-flow', zValidator('query', optionsFlowQuerySchema), async (c) 
  * Get dark pool data with pagination and filtering
  * GET /api/market-data/unusual-whales/dark-pool
  */
-app.get('/dark-pool', zValidator('query', darkPoolQuerySchema), async (c) => {
+router.get('/dark-pool', validateDarkPoolQuery, async (req, res) => {
   try {
-    const query = c.req.valid('query');
+    const query = req.validatedQuery;
     whalesLogger.info(`Getting dark pool data`, { query });
     
     const { data, totalCount, page, pageSize } = await unusualWhalesCollectionService.getDarkPoolData(
@@ -95,7 +164,7 @@ app.get('/dark-pool', zValidator('query', darkPoolQuerySchema), async (c) => {
       }
     );
     
-    return c.json({ 
+    return res.json({ 
       success: true, 
       data,
       pagination: {
@@ -110,11 +179,11 @@ app.get('/dark-pool', zValidator('query', darkPoolQuerySchema), async (c) => {
       error: error instanceof Error ? error.message : String(error) 
     });
     
-    return c.json({
+    return res.status(500).json({
       success: false,
       message: 'Failed to get dark pool data',
       error: error instanceof Error ? error.message : String(error)
-    }, 500);
+    });
   }
 });
 
@@ -122,13 +191,13 @@ app.get('/dark-pool', zValidator('query', darkPoolQuerySchema), async (c) => {
  * Get latest options flow data
  * GET /api/market-data/unusual-whales/options-flow/latest
  */
-app.get('/options-flow/latest', async (c) => {
+router.get('/options-flow/latest', async (req, res) => {
   try {
     whalesLogger.info(`Getting latest options flow data`);
     
     const data = await unusualWhalesService.getLatestOptionsFlow();
     
-    return c.json({ 
+    return res.json({ 
       success: true, 
       data
     });
@@ -137,11 +206,11 @@ app.get('/options-flow/latest', async (c) => {
       error: error instanceof Error ? error.message : String(error) 
     });
     
-    return c.json({
+    return res.status(500).json({
       success: false,
       message: 'Failed to get latest options flow data',
       error: error instanceof Error ? error.message : String(error)
-    }, 500);
+    });
   }
 });
 
@@ -149,13 +218,13 @@ app.get('/options-flow/latest', async (c) => {
  * Get latest dark pool data
  * GET /api/market-data/unusual-whales/dark-pool/latest
  */
-app.get('/dark-pool/latest', async (c) => {
+router.get('/dark-pool/latest', async (req, res) => {
   try {
     whalesLogger.info(`Getting latest dark pool data`);
     
     const data = await unusualWhalesService.getLatestDarkPoolData();
     
-    return c.json({ 
+    return res.json({ 
       success: true, 
       data
     });
@@ -164,13 +233,13 @@ app.get('/dark-pool/latest', async (c) => {
       error: error instanceof Error ? error.message : String(error) 
     });
     
-    return c.json({
+    return res.status(500).json({
       success: false,
       message: 'Failed to get latest dark pool data',
       error: error instanceof Error ? error.message : String(error)
-    }, 500);
+    });
   }
 });
 
 // Export the unusual whales routes
-export const unusualWhalesRoutes = app; 
+export const unusualWhalesRoutes = router; 

@@ -1,7 +1,7 @@
 import { pgTable, text, uuid, boolean, timestamp, index } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
-import { users } from './auth';
+import { users } from './auth.js';
 
 export const newsletterPreferences = pgTable(
   "newsletter_preferences",

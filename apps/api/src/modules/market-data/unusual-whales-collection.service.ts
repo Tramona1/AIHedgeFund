@@ -3,11 +3,52 @@
  * Collects and stores options flow and dark pool data
  */
 
-import { db } from "@repo/db";
-import { optionsFlow, darkPool } from "@repo/db/schema";
 import { logger } from "@repo/logger";
-import { sql } from "drizzle-orm";
+import { db } from "@repo/db";
+import { sql, and, desc, eq, gte, lte, like } from "drizzle-orm";
+import { DrizzleError } from "drizzle-orm";
 import { unusualWhalesService } from "./unusual-whales.service.js";
+import { 
+  selectWhere, 
+  insertInto, 
+  safeEq, 
+  safeTable,
+  batchInsert
+} from "../../lib/db-helpers.js";
+
+// Get schema tables directly from the DB instance
+const { optionsFlow, darkPoolData, userWatchlist } = db._.schema;
+
+// Create type-safe table proxies
+const safeOptionsFlow = safeTable<{
+  id: any;
+  ticker: any;
+  strike: any;
+  contractType: any;
+  expiration: any;
+  sentiment: any;
+  volume: any;
+  openInterest: any;
+  premium: any;
+  timestamp: any;
+  volatility: any;
+  underlyingPrice: any;
+}>(optionsFlow);
+
+const safeDarkPoolData = safeTable<{
+  id: any;
+  ticker: any;
+  price: any;
+  size: any;
+  premium: any;
+  exchange: any;
+  timestamp: any;
+}>(darkPoolData);
+
+const safeUserWatchlist = safeTable<{
+  userId: any;
+  symbol: any;
+}>(userWatchlist);
 
 // Create a module-specific logger
 const collectionLogger = logger.child({ module: "unusual-whales-collection" });
@@ -17,74 +58,75 @@ const collectionLogger = logger.child({ module: "unusual-whales-collection" });
  */
 export class UnusualWhalesCollectionService {
   /**
-   * Collect options flow data for a symbol
-   * @param symbol Stock ticker symbol (optional - if not provided, collects for all available symbols)
+   * Collect options flow data from Unusual Whales API
    */
   async collectOptionsFlow(symbol?: string): Promise<{ success: boolean; count: number; message?: string }> {
     try {
-      collectionLogger.info(`Starting options flow collection${symbol ? ` for ${symbol}` : ''}`);
+      collectionLogger.info("Collecting options flow data", { symbol });
       
       // Fetch data from Unusual Whales API
       const optionsFlowData = await unusualWhalesService.getOptionsFlow(symbol);
       
-      if (!optionsFlowData || !Array.isArray(optionsFlowData) || optionsFlowData.length === 0) {
-        return { 
-          success: false, 
-          count: 0, 
-          message: "No options flow data available" 
+      // Filter by symbol if provided
+      const filteredData = symbol
+        ? optionsFlowData.filter(item => item.ticker === symbol)
+        : optionsFlowData;
+      
+      if (filteredData.length === 0) {
+        return {
+          success: true,
+          count: 0,
+          message: `No options flow data found ${symbol ? `for ${symbol}` : ""}`,
         };
       }
       
-      collectionLogger.info(`Retrieved ${optionsFlowData.length} options flow records${symbol ? ` for ${symbol}` : ''}`);
+      // Transform data for database storage
+      const dataToInsert = filteredData.map(item => ({
+        ticker: item.ticker,
+        strike: item.strike,
+        contractType: item.contractType,
+        expiration: new Date(item.expiration),
+        sentiment: item.sentiment,
+        volume: item.volume,
+        openInterest: item.openInterest,
+        premium: item.premium,
+        timestamp: new Date(item.timestamp),
+        volatility: item.volatility,
+        underlyingPrice: item.underlyingPrice,
+      }));
       
-      // Process and store each record
-      let insertedCount = 0;
+      // Use our enhanced batchInsert function with batch size and error handling
+      const batchSize = 50;
+      const results = await batchInsert(
+        optionsFlow, 
+        dataToInsert, 
+        batchSize,
+        true // Continue processing other batches even if one fails
+      );
       
-      for (const flowData of optionsFlowData) {
-        try {
-          // Transform API data to match our schema
-          const transformedData = {
-            symbol: flowData.symbol,
-            timestamp: new Date(flowData.timestamp),
-            contractType: flowData.type, // Assuming API returns 'type' as CALL or PUT
-            strikePrice: flowData.strike_price,
-            expiration: new Date(flowData.expiration),
-            volume: flowData.volume,
-            openInterest: flowData.open_interest,
-            impliedVolatility: flowData.implied_volatility,
-            premium: flowData.premium,
-            premiumValue: flowData.premium_value,
-            tradeSide: flowData.side, // Assuming API returns 'side' as BUY or SELL
-            unusualScore: flowData.unusual_score,
-          };
-          
-          // Insert into database
-          await db.insert(optionsFlow).values(transformedData);
-          insertedCount++;
-        } catch (error: any) {
-          collectionLogger.error("Error processing options flow record", {
-            symbol: flowData.symbol,
-            error: error.message
-          });
-        }
-      }
+      const insertedCount = results.length;
       
-      collectionLogger.info(`Successfully stored ${insertedCount} options flow records`);
+      collectionLogger.info(`Successfully collected options flow data`, {
+        total: filteredData.length,
+        inserted: insertedCount,
+        symbol: symbol || "all",
+      });
       
       return {
         success: true,
-        count: insertedCount
+        count: insertedCount,
+        message: `Successfully collected ${insertedCount} options flow records`,
       };
     } catch (error: any) {
       collectionLogger.error("Error collecting options flow data", {
         symbol,
-        error: error.message
+        error: error instanceof Error ? error.message : String(error)
       });
       
       return {
         success: false,
         count: 0,
-        message: `Error collecting options flow data: ${error.message}`
+        message: `Error collecting options flow data: ${error instanceof Error ? error.message : String(error)}`
       };
     }
   }
@@ -128,7 +170,7 @@ export class UnusualWhalesCollectionService {
           };
           
           // Insert into database
-          await db.insert(darkPool).values(transformedData);
+          await db.insert(darkPoolData as any).values(transformedData);
           insertedCount++;
         } catch (error: any) {
           collectionLogger.error("Error processing dark pool record", {
@@ -208,15 +250,15 @@ export class UnusualWhalesCollectionService {
   private async getWatchlistSymbols(): Promise<string[]> {
     try {
       // This is a simplified example - adjust to match your actual schema
-      const result = await db.execute(`
-        SELECT DISTINCT symbol FROM user_watchlist_items
+      const result = await db.execute(sql`
+        SELECT DISTINCT ticker FROM user_watchlist 
         WHERE is_active = true
       `);
       
-      return result.map((row: any) => row.symbol);
+      return result.map((row: any) => row.ticker);
     } catch (error: any) {
       collectionLogger.error("Error getting watchlist symbols", {
-        error: error.message
+        error: error instanceof Error ? error.message : String(error)
       });
       
       return [];
@@ -225,4 +267,4 @@ export class UnusualWhalesCollectionService {
 }
 
 // Singleton instance
-export const unusualWhalesCollectionService = new UnusualWhalesCollectionService(); 
+export const unusualWhalesCollectionService = new UnusualWhalesCollectionService();

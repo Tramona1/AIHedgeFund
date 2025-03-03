@@ -1,9 +1,28 @@
 // @ts-ignore: Module resolution will be handled through declaration files
 import { db } from "@repo/db";
-// @ts-ignore: Module resolution will be handled through declaration files
-import { newsletterPreferences } from "@repo/db/schema";
 import { eq } from "drizzle-orm";
 import { logger } from "@repo/logger";
+import { 
+  selectWhere, 
+  insertInto, 
+  updateWhere, 
+  safeEq, 
+  safeTable 
+} from "../../lib/db-helpers.js";
+
+// Get schema tables directly from the DB instance
+const { newsletterPreferences } = db._.schema;
+
+// Create type-safe table proxy
+const safeNewsletterPreferences = safeTable<{
+  userId: any;
+  email: any;
+  isSubscribed: any;
+  lastDelivery: any;
+  updatedAt: any;
+  preferences: any;
+  createdAt: any;
+}>(newsletterPreferences);
 
 const newsletterLogger = logger.child({ module: 'newsletter-service' });
 
@@ -15,14 +34,19 @@ export class NewsletterService {
    */
   async getUserPreferences(userId: string) {
     try {
-      const [preferences] = await db
-        .select()
-        .from(newsletterPreferences)
-        .where(eq(newsletterPreferences.userId, userId) as any);
+      newsletterLogger.debug('Fetching user newsletter preferences', { userId });
+      
+      const [preferences] = await selectWhere(
+        newsletterPreferences,
+        safeEq(safeNewsletterPreferences.userId, userId)
+      );
       
       return preferences || null;
     } catch (error) {
-      newsletterLogger.error('Error fetching user newsletter preferences', { userId, error });
+      newsletterLogger.error('Error fetching user newsletter preferences', { 
+        userId, 
+        error: error instanceof Error ? error.message : String(error) 
+      });
       throw new Error('Failed to fetch newsletter preferences');
     }
   }
@@ -31,125 +55,154 @@ export class NewsletterService {
    * Create or update a user's newsletter preferences
    * @param userId User ID
    * @param email User email
-   * @param preferences Newsletter preferences to update
-   * @returns Updated preferences
+   * @param preferences Newsletter preferences object
+   * @returns The created or updated preferences
    */
   async upsertPreferences(userId: string, email: string, preferences: any) {
     try {
-      // Check if preferences exist
+      newsletterLogger.info('Upserting newsletter preferences', { userId });
+      
+      // Check if user has existing preferences
       const existing = await this.getUserPreferences(userId);
       
       if (existing) {
         // Update existing preferences
-        const [updated] = await db
-          .update(newsletterPreferences)
-          .set({
-            ...preferences,
-            updatedAt: new Date(),
-          })
-          .where(eq(newsletterPreferences.userId, userId) as any)
-          .returning();
+        const [updated] = await updateWhere(
+          newsletterPreferences, 
+          { 
+            email, 
+            preferences: JSON.stringify(preferences),
+            updatedAt: new Date()
+          },
+          safeEq(safeNewsletterPreferences.userId, userId)
+        );
         
         newsletterLogger.info('Updated newsletter preferences', { userId });
         return updated;
       } else {
         // Create new preferences
-        const [created] = await db
-          .insert(newsletterPreferences)
-          .values({
+        const created = await insertInto(
+          newsletterPreferences,
+          {
             userId,
             email,
-            ...preferences,
+            preferences: JSON.stringify(preferences),
+            isSubscribed: true,
             createdAt: new Date(),
-            updatedAt: new Date(),
-          })
-          .returning();
+            updatedAt: new Date()
+          }
+        );
         
         newsletterLogger.info('Created newsletter preferences', { userId });
         return created;
       }
     } catch (error) {
-      newsletterLogger.error('Error updating newsletter preferences', { userId, error });
+      newsletterLogger.error('Error upserting newsletter preferences', { 
+        userId, 
+        error: error instanceof Error ? error.message : String(error) 
+      });
       throw new Error('Failed to update newsletter preferences');
     }
   }
-
+  
   /**
-   * Toggle a user's subscription status
+   * Toggle a user's newsletter subscription status
    * @param userId User ID
    * @param isSubscribed Whether the user is subscribed
-   * @returns Updated preferences
+   * @returns The updated preferences
    */
   async toggleSubscription(userId: string, isSubscribed: boolean) {
     try {
-      const [updated] = await db
-        .update(newsletterPreferences)
-        .set({ 
-          isSubscribed,
-          updatedAt: new Date(),
-        })
-        .where(eq(newsletterPreferences.userId, userId) as any)
-        .returning();
+      newsletterLogger.info('Toggling newsletter subscription', { userId, isSubscribed });
       
-      if (!updated) {
-        throw new Error('No preferences found for user');
+      // Check if user has existing preferences
+      const existing = await this.getUserPreferences(userId);
+      
+      if (!existing) {
+        throw new Error('User has no newsletter preferences');
       }
       
-      newsletterLogger.info(`User ${isSubscribed ? 'subscribed to' : 'unsubscribed from'} newsletter`, { userId });
+      // Update subscription status
+      const [updated] = await updateWhere(
+        newsletterPreferences,
+        { 
+          isSubscribed,
+          updatedAt: new Date()
+        },
+        safeEq(safeNewsletterPreferences.userId, userId)
+      );
+      
+      newsletterLogger.info('Toggled newsletter subscription', { 
+        userId, 
+        isSubscribed 
+      });
+      
       return updated;
     } catch (error) {
-      newsletterLogger.error('Error toggling newsletter subscription', { userId, error });
-      throw new Error('Failed to update subscription status');
+      newsletterLogger.error('Error toggling newsletter subscription', { 
+        userId, 
+        error: error instanceof Error ? error.message : String(error) 
+      });
+      throw new Error('Failed to toggle newsletter subscription');
     }
   }
-
+  
   /**
-   * Get all subscribed users
-   * @returns Array of subscribed users with their preferences
+   * Get all users subscribed to the newsletter
+   * @returns List of subscribed users
    */
   async getAllSubscribedUsers() {
     try {
-      const subscribers = await db
-        .select()
-        .from(newsletterPreferences)
-        .where(eq(newsletterPreferences.isSubscribed, true));
+      newsletterLogger.debug('Fetching all subscribed users');
       
-      newsletterLogger.info(`Found ${subscribers.length} newsletter subscribers`);
+      const subscribers = await selectWhere(
+        newsletterPreferences,
+        safeEq(safeNewsletterPreferences.isSubscribed, true)
+      );
+      
+      newsletterLogger.info('Fetched subscribed users', { 
+        count: subscribers.length 
+      });
+      
       return subscribers;
     } catch (error) {
-      newsletterLogger.error('Error fetching newsletter subscribers', { error });
-      throw new Error('Failed to fetch newsletter subscribers');
+      newsletterLogger.error('Error fetching subscribed users', { 
+        error: error instanceof Error ? error.message : String(error) 
+      });
+      throw new Error('Failed to fetch subscribed users');
     }
   }
-
+  
   /**
-   * Record that a newsletter was sent to a user
+   * Record a newsletter delivery to a user
    * @param userId User ID
-   * @returns Updated preferences
+   * @returns The updated preferences
    */
   async recordDelivery(userId: string) {
     try {
-      const [updated] = await db
-        .update(newsletterPreferences)
-        .set({ 
-          lastDelivery: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(newsletterPreferences.userId, userId) as any)
-        .returning();
+      newsletterLogger.debug('Recording newsletter delivery', { userId });
       
-      if (!updated) {
-        throw new Error('No preferences found for user');
-      }
+      const [updated] = await updateWhere(
+        newsletterPreferences,
+        { 
+          lastDelivery: new Date(),
+          updatedAt: new Date()
+        },
+        safeEq(safeNewsletterPreferences.userId, userId)
+      );
       
       newsletterLogger.info('Recorded newsletter delivery', { userId });
+      
       return updated;
     } catch (error) {
-      newsletterLogger.error('Error recording newsletter delivery', { userId, error });
+      newsletterLogger.error('Error recording newsletter delivery', { 
+        userId, 
+        error: error instanceof Error ? error.message : String(error) 
+      });
       throw new Error('Failed to record newsletter delivery');
     }
   }
 }
 
-// Export singleton instance
+// Export a singleton instance
 export const newsletterService = new NewsletterService(); 

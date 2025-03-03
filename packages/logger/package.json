@@ -4,9 +4,15 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "license": "MIT",
   "scripts": {
-    "build": "tsup",
+    "build": "rimraf dist && tsup",
     "dev": "tsup --watch",
     "lint": "eslint src/",
     "clean": "rimraf .turbo node_modules dist",

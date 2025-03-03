@@ -1,42 +1,61 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import * as schema from "./schema/index";
-import { userPreferences, userPreferencesTable } from "./schema/user-preferences";
-import { stockUpdates } from "./schema/stock-updates";
-import { aiTriggers } from "./schema/ai-triggers";
+import * as schema from "./schema/index.js";
+import { userPreferences } from "./schema/user-preferences.js";
+import { stockUpdates } from "./schema/stock-updates.js";
+import { aiTriggers } from "./schema/ai-triggers.js";
+import { getEnv } from "./utils.js";
+// Import unusual whales schema
+import { optionsFlow, darkPoolData } from "./schema/unusual-whales.js";
+// Import market data schema
+import * as marketDataSchema from "./schema/market-data.js";
+// Import stock updates schema
+import * as stockUpdatesSchema from "./schema/stock-updates.js";
 
-// Get database URL with a fallback
-const databaseUrl = process.env.DATABASE_URL || 'postgres://postgres@localhost:5432/ai_hedge_fund';
+// Environment variables
+const { DATABASE_URL, DATABASE_CONNECTION_POOL_URL, NODE_ENV } = getEnv();
 
-console.log("Initializing database connection with:", databaseUrl);
+// Connection string
+const connectionString = NODE_ENV === "production" 
+  ? DATABASE_URL 
+  : DATABASE_CONNECTION_POOL_URL || DATABASE_URL;
 
-// Create a PostgreSQL client with minimal options - simplified based on successful tests
-const client = postgres(databaseUrl, {
-  connection: {
-    search_path: 'public'
-  }
-});
+// Configure postgres
+const client = postgres(connectionString, { max: 10 });
 
-// Create a drizzle ORM instance - explicitly including userPreferences in the schema
-export const db = drizzle(client, { 
-  schema: {
-    ...schema,
-    // Also expose the tables directly
-    userPreferences,
-    userPreferencesTable,
-    stockUpdates,
-    aiTriggers
-  } 
-});
+// Create db instance
+export const db = drizzle(client, { schema });
 
-// Log successful initialization
-console.log("Database initialized successfully");
+/**
+ * Helper function to get schema tables
+ * This provides a consistent way to access tables in the schema
+ */
+export const getSchema = () => {
+  return schema;
+};
 
-// Export schema for use in other modules
-export * from "./schema/index";
+// Export individual schema modules
+export * from "./schema/index.js";
+export * from "./types.js";
 
-// Export validators and types
-export * from "./types";
-
-// Default export
-export default db; 
+// Export specific tables and types that are commonly used
+export {
+  // User preferences
+  userPreferences,
+  
+  // Stock updates
+  stockUpdates,
+  
+  // AI triggers
+  aiTriggers,
+  
+  // Market data schema
+  marketDataSchema,
+  
+  // Stock updates schema
+  stockUpdatesSchema,
+  
+  // Unusual whales data
+  optionsFlow,
+  darkPoolData,
+}; 

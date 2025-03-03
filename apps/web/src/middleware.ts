@@ -13,6 +13,10 @@ export default authMiddleware({
     "/api/economic-reports/recent",
     "/api/interviews/recent",
     "/api/users/:userId/preferences",
+    // Allow API public health check
+    "/api/public-health",
+    // Allow AI query endpoint
+    "/api/ai-query",
     // Allow all static assets
     "/_next/static/(.*)",
     "/favicon.ico",
@@ -51,7 +55,9 @@ export const config = {
   matcher: [
     // Skip all static files except JS/CSS chunks and API routes
     '/((?!_next/image|_next/static|_vercel|favicon.ico).*)',
-    // Always run for API routes
-    '/(api|trpc)(.*)',
+    // Only run for specific API routes, exclude api/public-health and api/ai-query
+    '/(api(?!/public-health|/ai-query).*)/',
+    // Always run for trpc routes
+    '/trpc/(.*)',
   ],
 }; 

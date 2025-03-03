@@ -1,4 +1,4 @@
-import { dataCollectionService } from './data-collection.service';
+import { dataCollectionService } from './data-collection.service.js';
 import { logger } from '@repo/logger';
 
 // Create a module-specific logger
@@ -8,7 +8,7 @@ const schedulerLogger = logger.child({ module: 'market-data-scheduler' });
  * Class that handles scheduling of data collection jobs for market data
  */
 export class CollectionScheduler {
-  private watchlistCollectionInterval: NodeJS.Timeout | null = null;
+  private isRunning = false;
   private isMarketOpen = false;
   
   /**
@@ -17,17 +17,19 @@ export class CollectionScheduler {
   startScheduler() {
     schedulerLogger.info('Starting market data collection scheduler');
     
-    // Schedule a job to check if the market is open
-    this.scheduleMarketHoursCheck();
+    this.isRunning = true;
     
-    // Schedule a job to collect data for watchlist symbols
-    this.scheduleWatchlistCollection();
+    // Check market hours on startup
+    this.checkMarketHours();
+    
+    // Run initial collection
+    this.collectWatchlistData();
     
     schedulerLogger.info('Market data collection scheduler started');
     
     return {
-      watchlistCollectionActive: !!this.watchlistCollectionInterval,
-      marketHoursCheckActive: true
+      isRunning: this.isRunning,
+      isMarketOpen: this.isMarketOpen
     };
   }
   
@@ -37,11 +39,7 @@ export class CollectionScheduler {
   stopScheduler() {
     schedulerLogger.info('Stopping market data collection scheduler');
     
-    // Clear the watchlist collection interval
-    if (this.watchlistCollectionInterval) {
-      clearInterval(this.watchlistCollectionInterval);
-      this.watchlistCollectionInterval = null;
-    }
+    this.isRunning = false;
     
     schedulerLogger.info('Market data collection scheduler stopped');
     
@@ -49,27 +47,11 @@ export class CollectionScheduler {
   }
   
   /**
-   * Schedule a job to check if the market is open
-   * This runs every 15 minutes during potential market hours
-   */
-  private scheduleMarketHoursCheck() {
-    // Check immediately on startup
-    this.checkMarketHours();
-    
-    // Then check every 15 minutes
-    setInterval(() => {
-      this.checkMarketHours();
-    }, 15 * 60 * 1000); // 15 minutes
-    
-    schedulerLogger.info('Market hours check scheduled');
-  }
-  
-  /**
    * Check if the US stock market is currently open
    * This is a simplified version - a production implementation would
    * consider holidays, early closings, etc.
    */
-  private checkMarketHours() {
+  checkMarketHours() {
     try {
       const now = new Date();
       const day = now.getDay();
@@ -108,33 +90,14 @@ export class CollectionScheduler {
   }
   
   /**
-   * Schedule a job to collect data for watchlist symbols
-   * - During market hours: runs every 10 minutes
-   * - After hours: runs once at market close, once at 8 PM ET
-   */
-  private scheduleWatchlistCollection() {
-    // Collect data immediately on startup
-    this.collectWatchlistData();
-    
-    // Schedule regular collection
-    this.watchlistCollectionInterval = setInterval(() => {
-      // Check if we should run collection based on market hours
-      const shouldCollect = this.shouldCollectData();
-      
-      if (shouldCollect) {
-        schedulerLogger.info('Running scheduled watchlist data collection');
-        this.collectWatchlistData();
-      }
-    }, 10 * 60 * 1000); // Every 10 minutes
-    
-    schedulerLogger.info('Watchlist data collection scheduled');
-  }
-  
-  /**
    * Determine if data should be collected based on market hours and schedule
    */
-  private shouldCollectData(): boolean {
+  shouldCollectData(): boolean {
     try {
+      if (!this.isRunning) {
+        return false;
+      }
+      
       const now = new Date();
       const day = now.getDay();
       const hour = now.getHours();
@@ -178,7 +141,7 @@ export class CollectionScheduler {
   /**
    * Run the data collection for watchlist symbols
    */
-  private async collectWatchlistData() {
+  async collectWatchlistData() {
     try {
       schedulerLogger.info('Starting watchlist data collection');
       
@@ -210,6 +173,16 @@ export class CollectionScheduler {
   async forceCollectWatchlistData() {
     schedulerLogger.info('Manual watchlist data collection triggered');
     return this.collectWatchlistData();
+  }
+  
+  /**
+   * Get the current status of the scheduler
+   */
+  getStatus() {
+    return {
+      isRunning: this.isRunning,
+      isMarketOpen: this.isMarketOpen
+    };
   }
 }
 

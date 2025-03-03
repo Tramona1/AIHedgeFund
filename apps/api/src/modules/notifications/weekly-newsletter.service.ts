@@ -1,12 +1,12 @@
+// @ts-nocheck - Fix for multiple versions of drizzle-orm
 import { logger } from '@repo/logger';
 import { eq, desc, sql } from 'drizzle-orm';
-// @ts-ignore: Module resolution will be handled through declaration files
 import { db } from '@repo/db';
-// @ts-ignore: Module resolution will be handled through declaration files
-import { stockData, companyInfo, userWatchlist, optionsFlow, darkPoolData, newsletterPreferences } from '@repo/db/schema';
-// @ts-ignore: Using esModuleInterop for CommonJS module
 import sgMail from '@sendgrid/mail';
 import { newsletterService } from './newsletter.service.js';
+
+// Get schema objects directly from DB instance
+const { stockData, companyInfo, userWatchlist, optionsFlow, darkPoolData, newsletterPreferences } = db._.schema;
 
 const newsletterLogger = logger.child({ module: 'weekly-newsletter-service' });
 

@@ -1,8 +1,7 @@
-import { Hono } from "hono";
+import express, { Request, Response } from "express";
 // @ts-ignore: JS file without types
 import { notificationsService } from "./notifications.service.js";
 import { logger } from "@repo/logger";
-import { zValidator } from "../../pkg/util/validator-wrapper.js";
 import { z } from "zod";
 
 // Create a component-specific logger
@@ -16,81 +15,83 @@ const testEmailSchema = z.object({
 });
 
 // Create a router for notifications
-export const notificationsRoutes = new Hono()
-  // POST /api/notifications/test - Send a test email
-  .post("/test", async (c) => {
-    try {
-      const body = await c.req.json();
-      const validation = testEmailSchema.safeParse(body);
-      
-      if (!validation.success) {
-        return c.json({
-          status: "error",
-          message: "Validation failed",
-          errors: validation.error.format(),
-          code: 400
-        }, 400);
-      }
-      
-      const { ticker, eventType, details = {} } = validation.data;
-      
-      routeLogger.info("Received test email request", { ticker, eventType });
-      
-      await notificationsService.sendStockUpdateEmail(ticker, eventType, details);
-      
-      return c.json({ status: "success", message: "Test email sent successfully" });
-    } catch (error) {
-      routeLogger.error("Error sending test email", { 
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined
-      });
-      
-      return c.json(
-        { 
-          status: "error", 
-          message: error instanceof Error ? error.message : "Unknown error",
-          code: 500 
-        }, 
-        500
-      );
-    }
-  })
-  .post('/send-stock-update', async (c) => {
-    const data = await c.req.json();
-    const { ticker, eventType, details } = data;
+const router = express.Router();
+
+// POST /api/notifications/test - Send a test email
+router.post("/test", async (req: Request, res: Response) => {
+  try {
+    const body = req.body;
+    const validation = testEmailSchema.safeParse(body);
     
-    try {
-      routeLogger.info(`Sending stock update for ${ticker} (${eventType})`, { ticker, eventType });
-      await notificationsService.sendStockUpdateEmail(ticker, eventType, details);
-      return c.json({ status: 'success', message: 'Stock update emails sent successfully' });
-    } catch (error) {
-      routeLogger.error('Error sending stock update', { 
-        error: error instanceof Error ? error.message : String(error),
-        ticker,
-        eventType 
+    if (!validation.success) {
+      return res.status(400).json({
+        status: "error",
+        message: "Validation failed",
+        errors: validation.error.format(),
+        code: 400
       });
-      return c.json({ status: 'error', message: 'Failed to send stock update emails' }, 500);
     }
-  })
-  /* Temporarily disabled due to import issues
-  .post('/send-weekly-newsletter', async (c) => {
-    try {
-      routeLogger.info('Starting weekly newsletter generation');
-      const result = await weeklyNewsletterService.generateAndSendWeeklyNewsletters();
-      routeLogger.info('Weekly newsletter generation completed', result);
-      return c.json({ 
-        status: 'success', 
-        message: 'Weekly newsletters sent successfully',
-        ...result
-      });
-    } catch (error) {
-      routeLogger.error('Error sending weekly newsletters', { 
-        error: error instanceof Error ? error.message : String(error)
-      });
-      return c.json({ 
-        status: 'error', 
-        message: 'Failed to send weekly newsletters'
-      }, 500);
-    }
-  })
-  */; 
+    
+    const { ticker, eventType, details = {} } = validation.data;
+    
+    routeLogger.info("Received test email request", { ticker, eventType });
+    
+    await notificationsService.sendStockUpdateEmail(ticker, eventType, details);
+    
+    return res.json({ status: "success", message: "Test email sent successfully" });
+  } catch (error) {
+    routeLogger.error("Error sending test email", { 
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    
+    return res.status(500).json({ 
+      status: "error", 
+      message: error instanceof Error ? error.message : "Unknown error",
+      code: 500 
+    });
+  }
+});
+
+// POST /api/notifications/send-stock-update - Send stock update notifications
+router.post('/send-stock-update', async (req: Request, res: Response) => {
+  const { ticker, eventType, details } = req.body;
+  
+  try {
+    routeLogger.info(`Sending stock update for ${ticker} (${eventType})`, { ticker, eventType });
+    await notificationsService.sendStockUpdateEmail(ticker, eventType, details);
+    return res.json({ status: 'success', message: 'Stock update emails sent successfully' });
+  } catch (error) {
+    routeLogger.error('Error sending stock update', { 
+      error: error instanceof Error ? error.message : String(error),
+      ticker,
+      eventType 
+    });
+    return res.status(500).json({ status: 'error', message: 'Failed to send stock update emails' });
+  }
+});
+
+/* Temporarily disabled due to import issues
+router.post('/send-weekly-newsletter', async (req: Request, res: Response) => {
+  try {
+    routeLogger.info('Starting weekly newsletter generation');
+    const result = await weeklyNewsletterService.generateAndSendWeeklyNewsletters();
+    routeLogger.info('Weekly newsletter generation completed', result);
+    return res.json({ 
+      status: 'success', 
+      message: 'Weekly newsletters sent successfully',
+      ...result
+    });
+  } catch (error) {
+    routeLogger.error('Error sending weekly newsletters', { 
+      error: error instanceof Error ? error.message : String(error)
+    });
+    return res.status(500).json({ 
+      status: 'error', 
+      message: 'Failed to send weekly newsletters'
+    });
+  }
+});
+*/
+
+export const notificationsRoutes = router; 
