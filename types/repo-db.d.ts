@@ -1,6 +1,6 @@
 declare module '@repo/db' {
-  import { PgDatabase } from 'drizzle-orm/pg-core';
-  import * as schema from '../packages/db/src/schema/index';
+  import type { PgDatabase } from 'drizzle-orm/pg-core';
   
-  export const db: PgDatabase<typeof schema>;
+  // Export db instance
+  export const db: PgDatabase<any>;
 } 

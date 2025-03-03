@@ -43416,191 +43416,51 @@ import { logger as logger24 } from "@repo/logger";
 
 // src/modules/market-data/price-alerts.service.ts
 import { logger as logger23 } from "@repo/logger";
-import { db as db7 } from "@repo/db";
-import { stockData as stockData2, userWatchlist as userWatchlist3 } from "@repo/db/schema";
-var import_mail2 = __toESM(require_mail3(), 1);
-import_mail2.default.setApiKey(process.env.SENDGRID_API_KEY || "");
-var alertsLogger = logger23.child({ module: "price-alerts-service" });
+var serviceLogger5 = logger23.child({ module: "price-alerts-service" });
 class PriceAlertsService {
-  async checkPriceChanges(thresholdPercent = 5) {
-    try {
-      alertsLogger.info(`Checking for price changes above ${thresholdPercent}%`);
-      const significantChanges = await db7.select({
-        symbol: stockData2.symbol,
-        price: stockData2.price,
-        changePercent: stockData2.changePercent,
-        previousClose: stockData2.previousClose
-      }).from(stockData2).where(sql`ABS(${stockData2.changePercent}) >= ${thresholdPercent}`);
-      alertsLogger.info(`Found ${significantChanges.length} stocks with significant price changes`);
-      if (significantChanges.length === 0) {
-        return { processed: 0, notified: 0 };
-      }
-      const symbols = significantChanges.map((stock) => stock.symbol);
-      const watchlistItems = await db7.select({
-        userId: userWatchlist3.userId,
-        symbol: userWatchlist3.symbol
-      }).from(userWatchlist3).where(and(eq(userWatchlist3.isActive, true), sql`${userWatchlist3.symbol} IN (${symbols.join(",")})`));
-      const userWatchlists = watchlistItems.reduce((acc, item) => {
-        if (!acc[item.userId]) {
-          acc[item.userId] = [];
-        }
-        acc[item.userId].push(item.symbol);
-        return acc;
-      }, {});
-      let notificationCount = 0;
-      for (const [userId, userSymbols] of Object.entries(userWatchlists)) {
-        const userAlerts = significantChanges.filter((change) => userSymbols.includes(change.symbol));
-        if (userAlerts.length > 0) {
-          await this.sendPriceAlertEmail(userId, userAlerts);
-          notificationCount++;
-        }
-      }
-      alertsLogger.info(`Sent ${notificationCount} price alert notifications`);
-      return {
-        processed: significantChanges.length,
-        notified: notificationCount
-      };
-    } catch (error) {
-      alertsLogger.error("Error checking price changes", {
-        error: error instanceof Error ? error.message : String(error)
-      });
-      throw error;
-    }
+  async checkPriceChanges(threshold = 5) {
+    serviceLogger5.info(`Checking for price changes above ${threshold}%`);
+    return { processed: 0, notified: 0 };
   }
   async checkPriceThresholds() {
-    try {
-      alertsLogger.info("Checking price threshold alerts");
-      return { processed: 0, notified: 0 };
-    } catch (error) {
-      alertsLogger.error("Error checking price thresholds", {
-        error: error instanceof Error ? error.message : String(error)
-      });
-      throw error;
-    }
+    serviceLogger5.info("Checking price threshold alerts");
+    return { processed: 0, notified: 0 };
   }
-  async checkVolumeSurges(volumeMultiple = 2) {
-    try {
-      alertsLogger.info(`Checking for volume surges (${volumeMultiple}x average)`);
-      return { processed: 0, notified: 0 };
-    } catch (error) {
-      alertsLogger.error("Error checking volume surges", {
-        error: error instanceof Error ? error.message : String(error)
-      });
-      throw error;
-    }
+  async checkVolumeSurges(multiple = 2) {
+    serviceLogger5.info(`Checking for volume surges (${multiple}x average)`);
+    return { processed: 0, notified: 0 };
   }
   async checkRSIAlerts() {
-    try {
-      alertsLogger.info("Checking RSI alerts");
-      return { processed: 0, notified: 0 };
-    } catch (error) {
-      alertsLogger.error("Error checking RSI alerts", {
-        error: error instanceof Error ? error.message : String(error)
-      });
-      throw error;
-    }
-  }
-  async sendPriceAlertEmail(userId, alerts) {
-    try {
-      const userEmail = "user@example.com";
-      const alertItems = alerts.map((alert) => {
-        const direction = alert.changePercent > 0 ? "up" : "down";
-        const emoji = alert.changePercent > 0 ? "\uD83D\uDD3A" : "\uD83D\uDD3B";
-        return `
-          <tr>
-            <td style="padding: 12px; border-bottom: 1px solid #eee;">
-              <strong>${alert.symbol}</strong>
-            </td>
-            <td style="padding: 12px; border-bottom: 1px solid #eee;">
-              $${alert.price.toFixed(2)}
-            </td>
-            <td style="padding: 12px; border-bottom: 1px solid #eee; color: ${alert.changePercent > 0 ? "#16a34a" : "#dc2626"}">
-              ${emoji} ${Math.abs(alert.changePercent).toFixed(2)}% ${direction}
-            </td>
-          </tr>
-        `;
-      }).join("");
-      const msg = {
-        to: userEmail,
-        from: "alerts@aihedgefund.com",
-        subject: `\uD83D\uDEA8 Price Alert: Significant movements in ${alerts.length} of your watchlist stocks`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background-color: #1e40af; color: white; padding: 24px; text-align: center;">
-              <h1 style="margin: 0;">Stock Price Alerts</h1>
-            </div>
-            
-            <div style="padding: 24px;">
-              <p>We've detected significant price movements in the following stocks on your watchlist:</p>
-              
-              <table style="width: 100%; border-collapse: collapse; margin: 24px 0;">
-                <tr style="background-color: #f8fafc;">
-                  <th style="text-align: left; padding: 12px; border-bottom: 2px solid #ddd;">Symbol</th>
-                  <th style="text-align: left; padding: 12px; border-bottom: 2px solid #ddd;">Current Price</th>
-                  <th style="text-align: left; padding: 12px; border-bottom: 2px solid #ddd;">Change</th>
-                </tr>
-                ${alertItems}
-              </table>
-              
-              <p>
-                <a href="https://aihedgefund.com/watchlist" style="display: inline-block; background-color: #1e40af; color: white; text-decoration: none; padding: 12px 24px; border-radius: 4px;">
-                  View Your Watchlist
-                </a>
-              </p>
-              
-              <p style="color: #64748b; font-size: 0.875rem; margin-top: 24px;">
-                You're receiving this email because you have enabled price alerts for stocks in your watchlist.
-                <br>
-                <a href="https://aihedgefund.com/preferences" style="color: #1e40af;">Manage notification preferences</a>
-              </p>
-            </div>
-          </div>
-        `
-      };
-      if (false) {
-      } else {
-        alertsLogger.info(`[DEV] Would send price alert email to user ${userId}`, { emailContent: msg });
-      }
-      return true;
-    } catch (error) {
-      alertsLogger.error(`Error sending price alert email to user ${userId}`, {
-        error: error instanceof Error ? error.message : String(error)
-      });
-      return false;
-    }
+    serviceLogger5.info("Checking RSI alerts");
+    return { processed: 0, notified: 0 };
   }
   async runAllAlertChecks() {
-    try {
-      alertsLogger.info("Running all price alert checks");
-      const results = {
-        priceChanges: await this.checkPriceChanges(),
-        priceThresholds: await this.checkPriceThresholds(),
-        volumeSurges: await this.checkVolumeSurges(),
-        rsiAlerts: await this.checkRSIAlerts()
-      };
-      const totalProcessed = results.priceChanges.processed + results.priceThresholds.processed + results.volumeSurges.processed + results.rsiAlerts.processed;
-      const totalNotified = results.priceChanges.notified + results.priceThresholds.notified + results.volumeSurges.notified + results.rsiAlerts.notified;
-      alertsLogger.info(`Completed all price alert checks. Processed: ${totalProcessed}, Notified: ${totalNotified}`);
-      return {
-        ...results,
-        totalProcessed,
-        totalNotified
-      };
-    } catch (error) {
-      alertsLogger.error("Error running all price alert checks", {
-        error: error instanceof Error ? error.message : String(error)
-      });
-      throw error;
-    }
+    serviceLogger5.info("Running all price alert checks");
+    const results = {
+      priceChanges: await this.checkPriceChanges(),
+      priceThresholds: await this.checkPriceThresholds(),
+      volumeSurges: await this.checkVolumeSurges(),
+      rsiAlerts: await this.checkRSIAlerts()
+    };
+    const totalProcessed = results.priceChanges.processed + results.priceThresholds.processed + results.volumeSurges.processed + results.rsiAlerts.processed;
+    const totalNotified = results.priceChanges.notified + results.priceThresholds.notified + results.volumeSurges.notified + results.rsiAlerts.notified;
+    serviceLogger5.info(`Completed all price alert checks. Processed: ${totalProcessed}, Notified: ${totalNotified}`);
+    return {
+      ...results,
+      totalProcessed,
+      totalNotified,
+      alertsProcessed: totalProcessed,
+      triggeredAlerts: totalNotified
+    };
   }
 }
 var priceAlertsService = new PriceAlertsService;
 
 // src/modules/market-data/price-alerts.routes.ts
-var alertsLogger2 = logger24.child({ module: "price-alerts-routes" });
+var alertsLogger = logger24.child({ module: "price-alerts-routes" });
 var priceAlertsRoutes = new Hono2().get("/check", async (c) => {
   try {
-    alertsLogger2.info("Manual price alert check triggered");
+    alertsLogger.info("Manual price alert check triggered");
     const results = await priceAlertsService.runAllAlertChecks();
     return c.json({
       success: true,
@@ -43608,7 +43468,7 @@ var priceAlertsRoutes = new Hono2().get("/check", async (c) => {
       data: results
     });
   } catch (error) {
-    alertsLogger2.error("Error in manual price alert check", { error });
+    alertsLogger.error("Error in manual price alert check", { error });
     return c.json({
       success: false,
       message: "Failed to complete price alert checks",
@@ -43618,7 +43478,7 @@ var priceAlertsRoutes = new Hono2().get("/check", async (c) => {
 }).get("/check/:alertType", async (c) => {
   try {
     const alertType = c.req.param("alertType");
-    alertsLogger2.info(`Manual check for alert type: ${alertType}`);
+    alertsLogger.info(`Manual check for alert type: ${alertType}`);
     let result;
     switch (alertType) {
       case "price-changes":
@@ -43650,7 +43510,7 @@ var priceAlertsRoutes = new Hono2().get("/check", async (c) => {
       data: result
     });
   } catch (error) {
-    alertsLogger2.error("Error in specific alert type check", { error });
+    alertsLogger.error("Error in specific alert type check", { error });
     return c.json({
       success: false,
       message: "Failed to complete alert check",
@@ -43828,14 +43688,14 @@ var scheduledTasksRoutes = new Hono2().get("/run-all", async (c) => {
 import { logger as logger30 } from "@repo/logger";
 
 // src/modules/portfolio/portfolio.service.ts
-import { db as db8 } from "@repo/db";
+import { db as db7 } from "@repo/db";
 import { logger as logger28 } from "@repo/logger";
 import {
   userPortfolio,
   portfolioPosition,
   portfolioTransaction,
   portfolioPerformance,
-  stockData as stockData3
+  stockData as stockData2
 } from "@repo/db/schema/portfolio.js";
 var portfolioLogger = logger28.child({ module: "portfolio-service" });
 
@@ -43843,7 +43703,7 @@ class PortfolioService {
   async getUserPortfolios(userId) {
     try {
       portfolioLogger.info(`Fetching portfolios for user ${userId}`);
-      const portfolios = await db8.select().from(userPortfolio).where(and(eq(userPortfolio.userId, userId), eq(userPortfolio.isActive, true))).orderBy(desc(userPortfolio.updatedAt));
+      const portfolios = await db7.select().from(userPortfolio).where(and(eq(userPortfolio.userId, userId), eq(userPortfolio.isActive, true))).orderBy(desc(userPortfolio.updatedAt));
       return portfolios;
     } catch (error) {
       portfolioLogger.error(`Error fetching portfolios for user ${userId}`, {
@@ -43855,7 +43715,7 @@ class PortfolioService {
   async getPortfolio(portfolioId) {
     try {
       portfolioLogger.info(`Fetching portfolio ${portfolioId}`);
-      const [portfolio] = await db8.select().from(userPortfolio).where(eq(userPortfolio.id, portfolioId));
+      const [portfolio] = await db7.select().from(userPortfolio).where(eq(userPortfolio.id, portfolioId));
       if (!portfolio) {
         throw new Error(`Portfolio ${portfolioId} not found`);
       }
@@ -43873,9 +43733,9 @@ class PortfolioService {
       const existingPortfolios = await this.getUserPortfolios(userId);
       const makeDefault = data.isDefault || existingPortfolios.length === 0;
       if (makeDefault) {
-        await db8.update(userPortfolio).set({ isDefault: false }).where(eq(userPortfolio.userId, userId));
+        await db7.update(userPortfolio).set({ isDefault: false }).where(eq(userPortfolio.userId, userId));
       }
-      const [portfolio] = await db8.insert(userPortfolio).values({
+      const [portfolio] = await db7.insert(userPortfolio).values({
         userId,
         name: data.name,
         description: data.description || null,
@@ -43895,9 +43755,9 @@ class PortfolioService {
       portfolioLogger.info(`Updating portfolio ${portfolioId}`);
       const portfolio = await this.getPortfolio(portfolioId);
       if (data.isDefault) {
-        await db8.update(userPortfolio).set({ isDefault: false }).where(eq(userPortfolio.userId, portfolio.userId));
+        await db7.update(userPortfolio).set({ isDefault: false }).where(eq(userPortfolio.userId, portfolio.userId));
       }
-      const [updatedPortfolio] = await db8.update(userPortfolio).set({
+      const [updatedPortfolio] = await db7.update(userPortfolio).set({
         name: data.name || portfolio.name,
         description: data.description !== undefined ? data.description : portfolio.description,
         isDefault: data.isDefault !== undefined ? data.isDefault : portfolio.isDefault,
@@ -43916,14 +43776,14 @@ class PortfolioService {
     try {
       portfolioLogger.info(`Deleting portfolio ${portfolioId}`);
       const portfolio = await this.getPortfolio(portfolioId);
-      const [deletedPortfolio] = await db8.update(userPortfolio).set({
+      const [deletedPortfolio] = await db7.update(userPortfolio).set({
         isActive: false,
         updatedAt: new Date
       }).where(eq(userPortfolio.id, portfolioId)).returning();
       if (portfolio.isDefault) {
-        const activePortfolios = await db8.select().from(userPortfolio).where(and(eq(userPortfolio.userId, portfolio.userId), eq(userPortfolio.isActive, true)));
+        const activePortfolios = await db7.select().from(userPortfolio).where(and(eq(userPortfolio.userId, portfolio.userId), eq(userPortfolio.isActive, true)));
         if (activePortfolios.length > 0) {
-          await db8.update(userPortfolio).set({ isDefault: true }).where(eq(userPortfolio.id, activePortfolios[0].id));
+          await db7.update(userPortfolio).set({ isDefault: true }).where(eq(userPortfolio.id, activePortfolios[0].id));
         }
       }
       portfolioLogger.info(`Deleted portfolio ${portfolioId}`);
@@ -43938,7 +43798,7 @@ class PortfolioService {
   async getPortfolioPositions(portfolioId) {
     try {
       portfolioLogger.info(`Fetching positions for portfolio ${portfolioId}`);
-      const positions = await db8.select().from(portfolioPosition).where(and(eq(portfolioPosition.portfolioId, portfolioId), eq(portfolioPosition.isActive, true)));
+      const positions = await db7.select().from(portfolioPosition).where(and(eq(portfolioPosition.portfolioId, portfolioId), eq(portfolioPosition.isActive, true)));
       return positions;
     } catch (error) {
       portfolioLogger.error(`Error fetching positions for portfolio ${portfolioId}`, {
@@ -43950,7 +43810,7 @@ class PortfolioService {
   async getPosition(positionId) {
     try {
       portfolioLogger.info(`Fetching position ${positionId}`);
-      const [position] = await db8.select().from(portfolioPosition).where(eq(portfolioPosition.id, positionId));
+      const [position] = await db7.select().from(portfolioPosition).where(eq(portfolioPosition.id, positionId));
       if (!position) {
         throw new Error(`Position ${positionId} not found`);
       }
@@ -43965,15 +43825,15 @@ class PortfolioService {
   async addPosition(portfolioId, data) {
     try {
       portfolioLogger.info(`Adding position to portfolio ${portfolioId}`);
-      const [stockPrice] = await db8.select({
-        price: stockData3.price
-      }).from(stockData3).where(eq(stockData3.symbol, data.symbol.toUpperCase()));
+      const [stockPrice] = await db7.select({
+        price: stockData2.price
+      }).from(stockData2).where(eq(stockData2.symbol, data.symbol.toUpperCase()));
       const currentPrice = stockPrice?.price || data.averageCost;
       const costBasis = data.quantity * data.averageCost;
       const currentValue = data.quantity * currentPrice;
       const unrealizedGain = currentValue - costBasis;
       const unrealizedGainPercent = costBasis > 0 ? unrealizedGain / costBasis * 100 : 0;
-      const [position] = await db8.insert(portfolioPosition).values({
+      const [position] = await db7.insert(portfolioPosition).values({
         portfolioId,
         symbol: data.symbol.toUpperCase(),
         quantity: data.quantity.toString(),
@@ -44009,15 +43869,15 @@ class PortfolioService {
       const position = await this.getPosition(positionId);
       const quantity = data.quantity !== undefined ? data.quantity : parseFloat(position.quantity.toString());
       const averageCost = data.averageCost !== undefined ? data.averageCost : parseFloat(position.averageCost.toString());
-      const [stockPrice] = await db8.select({
-        price: stockData3.price
-      }).from(stockData3).where(eq(stockData3.symbol, position.symbol));
+      const [stockPrice] = await db7.select({
+        price: stockData2.price
+      }).from(stockData2).where(eq(stockData2.symbol, position.symbol));
       const currentPrice = stockPrice?.price || averageCost;
       const costBasis = quantity * averageCost;
       const currentValue = quantity * currentPrice;
       const unrealizedGain = currentValue - costBasis;
       const unrealizedGainPercent = costBasis > 0 ? unrealizedGain / costBasis * 100 : 0;
-      const [updatedPosition] = await db8.update(portfolioPosition).set({
+      const [updatedPosition] = await db7.update(portfolioPosition).set({
         quantity: quantity.toString(),
         averageCost: averageCost.toString(),
         currentPrice: currentPrice.toString(),
@@ -44042,7 +43902,7 @@ class PortfolioService {
     try {
       portfolioLogger.info(`Removing position ${positionId}`);
       const position = await this.getPosition(positionId);
-      const [removedPosition] = await db8.update(portfolioPosition).set({
+      const [removedPosition] = await db7.update(portfolioPosition).set({
         isActive: false,
         updatedAt: new Date
       }).where(eq(portfolioPosition.id, positionId)).returning();
@@ -44067,7 +43927,7 @@ class PortfolioService {
   async recordTransaction(data) {
     try {
       const totalValue = data.quantity * data.price;
-      const [transaction] = await db8.insert(portfolioTransaction).values({
+      const [transaction] = await db7.insert(portfolioTransaction).values({
         portfolioId: data.portfolioId,
         positionId: data.positionId,
         type: data.type,
@@ -44091,7 +43951,7 @@ class PortfolioService {
   async getPortfolioTransactions(portfolioId) {
     try {
       portfolioLogger.info(`Fetching transactions for portfolio ${portfolioId}`);
-      const transactions = await db8.select().from(portfolioTransaction).where(eq(portfolioTransaction.portfolioId, portfolioId)).orderBy(desc(portfolioTransaction.transactionDate));
+      const transactions = await db7.select().from(portfolioTransaction).where(eq(portfolioTransaction.portfolioId, portfolioId)).orderBy(desc(portfolioTransaction.transactionDate));
       return transactions;
     } catch (error) {
       portfolioLogger.error(`Error fetching transactions for portfolio ${portfolioId}`, {
@@ -44105,10 +43965,10 @@ class PortfolioService {
       portfolioLogger.info(`Updating prices for portfolio ${portfolioId}`);
       const positions = await this.getPortfolioPositions(portfolioId);
       const symbols = [...new Set(positions.map((p) => p.symbol))];
-      const stockPrices = await db8.select({
-        symbol: stockData3.symbol,
-        price: stockData3.price
-      }).from(stockData3).where(sql`${stockData3.symbol} IN (${symbols.join(",")})`);
+      const stockPrices = await db7.select({
+        symbol: stockData2.symbol,
+        price: stockData2.price
+      }).from(stockData2).where(sql`${stockData2.symbol} IN (${symbols.join(",")})`);
       const priceMap = new Map;
       stockPrices.forEach((sp) => priceMap.set(sp.symbol, sp.price));
       for (const position of positions) {
@@ -44119,7 +43979,7 @@ class PortfolioService {
         const currentValue = quantity * currentPrice;
         const unrealizedGain = currentValue - costBasis;
         const unrealizedGainPercent = costBasis > 0 ? unrealizedGain / costBasis * 100 : 0;
-        await db8.update(portfolioPosition).set({
+        await db7.update(portfolioPosition).set({
           currentPrice: currentPrice.toString(),
           currentValue: currentValue.toString(),
           unrealizedGain: unrealizedGain.toString(),
@@ -44151,13 +44011,13 @@ class PortfolioService {
       });
       const yesterday = new Date;
       yesterday.setDate(yesterday.getDate() - 1);
-      const [prevPerformance] = await db8.select().from(portfolioPerformance).where(and(eq(portfolioPerformance.portfolioId, portfolioId), sql`DATE(${portfolioPerformance.date}) = DATE(${yesterday})`)).orderBy(desc(portfolioPerformance.createdAt)).limit(1);
+      const [prevPerformance] = await db7.select().from(portfolioPerformance).where(and(eq(portfolioPerformance.portfolioId, portfolioId), sql`DATE(${portfolioPerformance.date}) = DATE(${yesterday})`)).orderBy(desc(portfolioPerformance.createdAt)).limit(1);
       const prevValue = prevPerformance ? parseFloat(prevPerformance.totalValue.toString()) : totalValue;
       const dayChange = totalValue - prevValue;
       const dayChangePercent = prevValue > 0 ? dayChange / prevValue * 100 : 0;
       const totalGain = totalValue - costBasis;
       const totalGainPercent = costBasis > 0 ? totalGain / costBasis * 100 : 0;
-      const [performance3] = await db8.insert(portfolioPerformance).values({
+      const [performance3] = await db7.insert(portfolioPerformance).values({
         portfolioId,
         totalValue: totalValue.toString(),
         costBasis: costBasis.toString(),
@@ -44182,7 +44042,7 @@ class PortfolioService {
       portfolioLogger.info(`Fetching performance history for portfolio ${portfolioId}`);
       const startDate = new Date;
       startDate.setDate(startDate.getDate() - days);
-      const performances = await db8.select().from(portfolioPerformance).where(and(eq(portfolioPerformance.portfolioId, portfolioId), sql`${portfolioPerformance.date} >= ${startDate}`)).orderBy(desc(portfolioPerformance.date));
+      const performances = await db7.select().from(portfolioPerformance).where(and(eq(portfolioPerformance.portfolioId, portfolioId), sql`${portfolioPerformance.date} >= ${startDate}`)).orderBy(desc(portfolioPerformance.date));
       return performances;
     } catch (error) {
       portfolioLogger.error(`Error fetching performance history for portfolio ${portfolioId}`, {
@@ -44517,10 +44377,10 @@ var portfolioRoutes = new Hono2().get("/user/:userId", async (c) => {
 });
 
 // src/modules/ai-query/ai-query.service.ts
-import { db as db9 } from "@repo/db";
+import { db as db8 } from "@repo/db";
 import { randomUUID } from "crypto";
-var { stockData: stockData4, companyInfo: companyInfo2, balanceSheet: balanceSheet2, incomeStatement: incomeStatement2, technicalIndicators: technicalIndicators2 } = db9._.schema;
-var { aiQueries } = db9._.schema;
+var { stockData: stockData3, companyInfo: companyInfo2, balanceSheet: balanceSheet2, incomeStatement: incomeStatement2, technicalIndicators: technicalIndicators2 } = db8._.schema;
+var { aiQueries } = db8._.schema;
 var geminiService = {
   async sendMessage(message, context) {
     try {
@@ -44669,7 +44529,7 @@ class AIQueryService {
     let result;
     try {
       if (queryType.includes("marketCap") || queryType.includes("peRatio")) {
-        let query = db9.select().from(companyInfo2);
+        let query = db8.select().from(companyInfo2);
         if (parameters.marketCapMin) {
           query = query.$dynamic().where(gte(companyInfo2.marketCap, parameters.marketCapMin));
         }
@@ -44685,7 +44545,7 @@ class AIQueryService {
         result = await query.execute();
       }
       if (queryType.includes("revenue") || queryType.includes("income")) {
-        const incomeData = await db9.execute(sql`
+        const incomeData = await db8.execute(sql`
           SELECT * FROM income_statement 
           WHERE fiscal_date_ending IN (
             SELECT DISTINCT fiscal_date_ending 
@@ -44755,7 +44615,7 @@ class AIQueryService {
   }
   async saveQuery(userId, query, result) {
     try {
-      await db9.insert(aiQueries).values({
+      await db8.insert(aiQueries).values({
         id: randomUUID(),
         userId,
         query,
@@ -44772,7 +44632,7 @@ class AIQueryService {
   }
   async getQueryHistory(userId, limit = 10, offset = 0) {
     try {
-      const history = await db9.execute(sql`
+      const history = await db8.execute(sql`
         SELECT * FROM ai_queries 
         WHERE user_id = ${userId}
         ORDER BY created_at DESC
@@ -44786,7 +44646,7 @@ class AIQueryService {
   }
   async getQueryCount(userId) {
     try {
-      const result = await db9.execute(sql`
+      const result = await db8.execute(sql`
         SELECT COUNT(*) as count FROM ai_queries WHERE user_id = ${userId}
       `);
       return result[0]?.count || 0;

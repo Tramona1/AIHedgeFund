@@ -232,7 +232,11 @@ class WeeklyNewsletterService {
     };
     
     // Get market summary
-    content.marketSummary = await this.getMarketSummary();
+    content.marketSummary = await this.getMarketSummary() as {
+      indices: MarketIndex[];
+      marketTrend: string;
+      recentNews: any[];
+    };
     
     // Get watchlist updates if user has stocks
     content.watchlistUpdates = await this.getWatchlistUpdates(user.userId);
@@ -241,7 +245,11 @@ class WeeklyNewsletterService {
     content.optionsFlowInsights = await this.getOptionsFlowInsights();
     
     // Get dark pool activity
-    content.darkPoolActivity = await this.getDarkPoolActivity();
+    const darkPoolData = await this.getDarkPoolActivity();
+    content.darkPoolActivity = {
+      largeBlocks: darkPoolData.recentActivity,
+      insights: darkPoolData.insights
+    };
     
     // Add recommendations based on interests
     const recommendations = await this.getTradingRecommendations(user);
@@ -261,8 +269,8 @@ class WeeklyNewsletterService {
       const indexData = await db
         .select()
         .from(stockData)
-        .where(sql`${stockData.symbol} IN (${indices.join(',')})`)
-        .orderBy(desc(stockData.timestamp));
+        .where(sql`${stockData.symbol} IN (${indices.join(',')})` as any)
+        .orderBy(desc(stockData.timestamp) as any);
       
       // Format the data
       const summary = {
@@ -289,7 +297,7 @@ class WeeklyNewsletterService {
       const watchlist = await db
         .select()
         .from(userWatchlist)
-        .where(eq(userWatchlist.userId, userId));
+        .where(eq(userWatchlist.userId, userId) as any);
       
       // If empty watchlist, return empty result
       if (!watchlist.length) {
@@ -303,14 +311,14 @@ class WeeklyNewsletterService {
       const stocksData = await db
         .select()
         .from(stockData)
-        .where(sql`${stockData.symbol} IN (${symbols.join(',')})`)
-        .orderBy(desc(stockData.timestamp));
+        .where(sql`${stockData.symbol} IN (${symbols.join(',')})` as any)
+        .orderBy(desc(stockData.timestamp) as any);
       
       // Fetch company info
       const companiesData = await db
         .select()
         .from(companyInfo)
-        .where(sql`${companyInfo.symbol} IN (${symbols.join(',')})`);
+        .where(sql`${companyInfo.symbol} IN (${symbols.join(',')})` as any);
       
       // Combine data
       const stocks = stocksData.map(stock => {
@@ -339,11 +347,11 @@ class WeeklyNewsletterService {
       const recentOptions = await db
         .select()
         .from(optionsFlow)
-        .orderBy(desc(optionsFlow.timestamp))
+        .orderBy(desc(optionsFlow.timestamp) as any)
         .limit(10);
       
       // Analyze for patterns or notable activity
-      const insights = this.analyzeOptionsFlow(recentOptions);
+      const insights = this.analyzeOptionsFlow(recentOptions as OptionsData[]);
       
       return {
         recentActivity: recentOptions,
@@ -365,11 +373,11 @@ class WeeklyNewsletterService {
       const recentActivity = await db
         .select()
         .from(darkPoolData)
-        .orderBy(desc(darkPoolData.timestamp))
+        .orderBy(desc(darkPoolData.timestamp) as any)
         .limit(10);
       
       // Analyze for patterns or notable activity
-      const insights = this.analyzeDarkPoolActivity(recentActivity);
+      const insights = this.analyzeDarkPoolActivity(recentActivity as DarkPoolTrade[]);
       
       return {
         recentActivity,

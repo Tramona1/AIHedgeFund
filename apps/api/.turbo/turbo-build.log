@@ -4,6 +4,6 @@
 > bun build src/index.ts --outdir ./dist --target bun --external @repo/*
 
 
-  ./index.js  1331.38 KB
+  ./index.js  1325.41 KB
 
-[0m[2m[[1m33ms[0m[2m][0m [32mbundle[0m 347 modules
+[0m[2m[[1m50ms[0m[2m][0m [32mbundle[0m 347 modules
