@@ -38,6 +38,9 @@ importers:
       framer-motion:
         specifier: ^12.4.7
         version: 12.4.7(react-dom@18.3.1)(react@18.3.1)
+      postgres:
+        specifier: ^3.4.5
+        version: 3.4.5
       recharts:
         specifier: ^2.15.1
         version: 2.15.1(react-dom@18.3.1)(react@18.3.1)
@@ -74,7 +77,7 @@ importers:
         version: 8.1.4
       drizzle-orm:
         specifier: 0.30.10
-        version: 0.30.10(bun-types@1.2.3)(react@18.3.1)
+        version: 0.30.10(bun-types@1.2.3)(postgres@3.4.5)(react@18.3.1)
       hono:
         specifier: ^4.0.7
         version: 4.7.2
@@ -3853,7 +3856,7 @@ packages:
       - supports-color
     dev: true
 
-  /drizzle-orm@0.30.10(bun-types@1.2.3)(react@18.3.1):
+  /drizzle-orm@0.30.10(bun-types@1.2.3)(postgres@3.4.5)(react@18.3.1):
     resolution: {integrity: sha512-IRy/QmMWw9lAQHpwbUh1b8fcn27S/a9zMIzqea1WNOxK9/4EB8gIo+FZWLiPXzl2n9ixGSv8BhsLZiOppWEwBw==}
     peerDependencies:
       '@aws-sdk/client-rds-data': '>=3'
@@ -3934,6 +3937,7 @@ packages:
         optional: true
     dependencies:
       bun-types: 1.2.3
+      postgres: 3.4.5
       react: 18.3.1
     dev: false
 

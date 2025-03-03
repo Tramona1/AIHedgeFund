@@ -54,4 +54,43 @@ export const notificationsRoutes = new Hono()
         500
       );
     }
-  }); 
+  })
+  .post('/send-stock-update', async (c) => {
+    const data = await c.req.json();
+    const { ticker, eventType, details } = data;
+    
+    try {
+      routeLogger.info(`Sending stock update for ${ticker} (${eventType})`, { ticker, eventType });
+      await notificationsService.sendStockUpdateEmail(ticker, eventType, details);
+      return c.json({ status: 'success', message: 'Stock update emails sent successfully' });
+    } catch (error) {
+      routeLogger.error('Error sending stock update', { 
+        error: error instanceof Error ? error.message : String(error),
+        ticker,
+        eventType 
+      });
+      return c.json({ status: 'error', message: 'Failed to send stock update emails' }, 500);
+    }
+  })
+  /* Temporarily disabled due to import issues
+  .post('/send-weekly-newsletter', async (c) => {
+    try {
+      routeLogger.info('Starting weekly newsletter generation');
+      const result = await weeklyNewsletterService.generateAndSendWeeklyNewsletters();
+      routeLogger.info('Weekly newsletter generation completed', result);
+      return c.json({ 
+        status: 'success', 
+        message: 'Weekly newsletters sent successfully',
+        ...result
+      });
+    } catch (error) {
+      routeLogger.error('Error sending weekly newsletters', { 
+        error: error instanceof Error ? error.message : String(error)
+      });
+      return c.json({ 
+        status: 'error', 
+        message: 'Failed to send weekly newsletters'
+      }, 500);
+    }
+  })
+  */; 

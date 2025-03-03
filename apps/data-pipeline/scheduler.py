@@ -3,6 +3,7 @@ import time
 import logging
 import asyncio
 import schedule
+import requests
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
@@ -46,6 +47,9 @@ class Scheduler:
         
         # Get user type (trader or investor) or default to both
         self.user_type = os.getenv("USER_TYPE", "both").lower()
+        
+        # Get API base URL from environment or use default
+        self.api_base_url = os.getenv("API_BASE_URL", "http://localhost:3000")
         
         logger.info(f"Scheduler initialized with {len(self.tickers)} tickers and user type: {self.user_type}", 
                    extra={"metadata": {"tickers": self.tickers, "user_type": self.user_type}})
@@ -174,6 +178,48 @@ class Scheduler:
         except Exception as e:
             logger.error(f"Error in interview processor job: {e}", extra={"metadata": {}})
     
+    def run_weekly_newsletter(self):
+        """Run the weekly newsletter generation and sending job."""
+        try:
+            logger.info("Starting weekly newsletter job", extra={"metadata": {}})
+            
+            # Call the API endpoint to generate and send newsletters
+            api_url = f"{self.api_base_url}/api/notifications/send-weekly-newsletter"
+            
+            response = requests.post(api_url, json={"frequency": "weekly"})
+            
+            if response.status_code == 200:
+                result = response.json()
+                logger.info(f"Weekly newsletter job completed successfully", 
+                           extra={"metadata": result})
+            else:
+                logger.error(f"Weekly newsletter API returned error: {response.status_code}", 
+                            extra={"metadata": {"status_code": response.status_code}})
+                
+        except Exception as e:
+            logger.error(f"Error in weekly newsletter job: {e}", extra={"metadata": {}})
+            
+    def run_daily_newsletter(self):
+        """Run the daily newsletter generation and sending job."""
+        try:
+            logger.info("Starting daily newsletter job", extra={"metadata": {}})
+            
+            # Call the API endpoint to generate and send newsletters
+            api_url = f"{self.api_base_url}/api/notifications/send-weekly-newsletter"
+            
+            response = requests.post(api_url, json={"frequency": "daily"})
+            
+            if response.status_code == 200:
+                result = response.json()
+                logger.info(f"Daily newsletter job completed successfully", 
+                           extra={"metadata": result})
+            else:
+                logger.error(f"Daily newsletter API returned error: {response.status_code}", 
+                            extra={"metadata": {"status_code": response.status_code}})
+                
+        except Exception as e:
+            logger.error(f"Error in daily newsletter job: {e}", extra={"metadata": {}})
+    
     def schedule_jobs(self):
         """Schedule all data pipeline jobs based on user type."""
         if self.user_type == "trader" or self.user_type == "both":
@@ -196,6 +242,13 @@ class Scheduler:
             schedule.every(4).hours.do(self.run_economic_report_fetcher)
             schedule.every(12).hours.do(self.run_interview_processor)
             logger.info("Investor data jobs scheduled", extra={"metadata": {}})
+        
+        # Schedule newsletters
+        schedule.every().monday.at("08:00").do(self.run_weekly_newsletter)
+        logger.info("Weekly newsletter job scheduled for Monday at 8 AM", extra={"metadata": {}})
+        
+        schedule.every().day.at("08:00").do(self.run_daily_newsletter)
+        logger.info("Daily newsletter job scheduled for every day at 8 AM", extra={"metadata": {}})
     
     def _run_async_job(self, job_func):
         """
@@ -242,6 +295,8 @@ class Scheduler:
             self.run_interview_processor()
         elif self.user_type == "trader":
             self.run_economic_report_fetcher()
+        
+        # Don't run the weekly newsletter on startup - it should only run on schedule
         
         logger.info("Completed running all jobs", extra={"metadata": {}})
     

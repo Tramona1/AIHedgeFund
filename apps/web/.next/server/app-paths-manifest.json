@@ -1,1 +1,23 @@
-{}
+{
+  "/api/ai-query/route": "app/api/ai-query/route.js",
+  "/api/ai/gemini/route": "app/api/ai/gemini/route.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/page": "app/page.js",
+  "/economic-reports/page": "app/economic-reports/page.js",
+  "/login/page": "app/login/page.js",
+  "/interviews/page": "app/interviews/page.js",
+  "/watchlist/alerts/page": "app/watchlist/alerts/page.js",
+  "/watchlist/page": "app/watchlist/page.js",
+  "/preferences/page": "app/preferences/page.js",
+  "/signup/page": "app/signup/page.js",
+  "/ai-query/page": "app/ai-query/page.js",
+  "/portfolio/page": "app/portfolio/page.js",
+  "/dashboard/insider-trading/page": "app/dashboard/insider-trading/page.js",
+  "/dashboard/alerts/page": "app/dashboard/alerts/page.js",
+  "/dashboard/hedge-funds/page": "app/dashboard/hedge-funds/page.js",
+  "/dashboard/notifications/page": "app/dashboard/notifications/page.js",
+  "/dashboard/options/page": "app/dashboard/options/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/dashboard/settings/page": "app/dashboard/settings/page.js",
+  "/dashboard/technical/page": "app/dashboard/technical/page.js"
+}

@@ -1,9 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { Container } from "@/components/ui/Container"
 import { Card } from "@/components/ui/Card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/Button"
+import { Bot, InfoIcon, ChevronDown, ChevronUp } from "lucide-react"
+import { aiChatService } from "@/lib/ai-service"
 import {
   AreaChart,
   Area,
@@ -68,8 +71,44 @@ const renderCustomizedLabel = ({ cx, cy, value }: any) => {
   )
 }
 
-export function MarketIndicatorsSection() {
+// Add interface for props
+interface MarketIndicatorsSectionProps {
+  openAiChatAction?: (context: string) => void;
+}
+
+export function MarketIndicatorsSection({ openAiChatAction }: MarketIndicatorsSectionProps = {}) {
   const [viewMode, setViewMode] = useState<'gauge' | 'history'>('gauge')
+  const [showAiInsights, setShowAiInsights] = useState(false)
+  const [rsiInsights, setRsiInsights] = useState<string | null>(null)
+  const [loadingInsights, setLoadingInsights] = useState(false)
+  
+  // Generate AI insights for RSI
+  const generateRsiInsights = useCallback(async () => {
+    if (rsiInsights) {
+      // Toggle visibility if insights already exist
+      setShowAiInsights(prev => !prev);
+      return;
+    }
+    
+    setLoadingInsights(true);
+    setShowAiInsights(true);
+    
+    try {
+      const result = await aiChatService.generateInsights("S&P 500 RSI Technical Analysis", {
+        currentRSI: 65,
+        historicalData: spRsiHistoricalData,
+        overboughtThreshold: 70,
+        oversoldThreshold: 30
+      });
+      
+      setRsiInsights(result.text);
+    } catch (error) {
+      console.error("Error generating RSI insights:", error);
+      setRsiInsights("Unable to generate insights at this time. Please try again later.");
+    } finally {
+      setLoadingInsights(false);
+    }
+  }, [rsiInsights]);
   
   return (
     <div className="border-b bg-card">
@@ -88,9 +127,25 @@ export function MarketIndicatorsSection() {
           <div className="grid gap-6 md:grid-cols-3">
             {/* Buffett Indicator */}
             <Card className="p-4 overflow-hidden">
-              <div className="mb-2">
-                <h3 className="font-medium">Buffett Indicator</h3>
-                <p className="text-xs text-muted-foreground">Market Valuation Metric</p>
+              <div className="mb-2 flex justify-between items-center">
+                <div>
+                  <h3 className="font-medium">Buffett Indicator</h3>
+                  <p className="text-xs text-muted-foreground">Market Valuation Metric</p>
+                </div>
+                {openAiChatAction && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => 
+                      openAiChatAction(
+                        "Explain the Buffett Indicator, which is currently at 150%. What does this high reading mean for the overall market valuation and potential risks?"
+                      )
+                    }
+                  >
+                    <Bot className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
               
               {viewMode === 'gauge' ? (
@@ -113,7 +168,7 @@ export function MarketIndicatorsSection() {
                         <Cell fill="#e5e7eb" />
                       </Pie>
                       <text x="50%" y="120" textAnchor="middle" className="text-xs">
-                        Overvalued
+                        Significantly Overvalued
                       </text>
                     </PieChart>
                   </ResponsiveContainer>
@@ -149,9 +204,25 @@ export function MarketIndicatorsSection() {
 
             {/* Fear & Greed Index */}
             <Card className="p-4 overflow-hidden">
-              <div className="mb-2">
-                <h3 className="font-medium">Fear & Greed Index</h3>
-                <p className="text-xs text-muted-foreground">Market Sentiment Indicator</p>
+              <div className="mb-2 flex justify-between items-center">
+                <div>
+                  <h3 className="font-medium">Fear & Greed Index</h3>
+                  <p className="text-xs text-muted-foreground">Market Sentiment Indicator</p>
+                </div>
+                {openAiChatAction && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => 
+                      openAiChatAction(
+                        "The Fear & Greed Index is currently showing 'Extreme Greed' at 75. What does this tell us about market sentiment and how might this affect market performance in the near term?"
+                      )
+                    }
+                  >
+                    <Bot className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
               
               {viewMode === 'gauge' ? (
@@ -210,9 +281,36 @@ export function MarketIndicatorsSection() {
 
             {/* S&P 500 RSI */}
             <Card className="p-4 overflow-hidden">
-              <div className="mb-2">
-                <h3 className="font-medium">S&P 500 RSI</h3>
-                <p className="text-xs text-muted-foreground">Relative Strength Index</p>
+              <div className="mb-2 flex justify-between items-center">
+                <div>
+                  <h3 className="font-medium">S&P 500 RSI</h3>
+                  <p className="text-xs text-muted-foreground">Relative Strength Index</p>
+                </div>
+                <div className="flex space-x-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8"
+                    onClick={generateRsiInsights}
+                  >
+                    <span className="mr-1">AI Insights</span>
+                    {showAiInsights ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
+                  {openAiChatAction && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => 
+                        openAiChatAction(
+                          "The S&P 500 RSI is currently at 65, indicating it's slightly overbought. Can you explain what RSI measures, what this level means, and how traders typically use this information?"
+                        )
+                      }
+                    >
+                      <Bot className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               </div>
               
               {viewMode === 'gauge' ? (
@@ -265,6 +363,26 @@ export function MarketIndicatorsSection() {
                       />
                     </AreaChart>
                   </ResponsiveContainer>
+                </div>
+              )}
+              
+              {/* AI Insights Panel */}
+              {showAiInsights && (
+                <div className="mt-3 border-t pt-3">
+                  <h4 className="text-sm font-medium mb-2">AI Technical Analysis</h4>
+                  {loadingInsights ? (
+                    <div className="flex items-center justify-center py-3">
+                      <div className="flex space-x-2">
+                        <div className="h-2 w-2 rounded-full bg-primary animate-pulse"></div>
+                        <div className="h-2 w-2 rounded-full bg-primary animate-pulse delay-150"></div>
+                        <div className="h-2 w-2 rounded-full bg-primary animate-pulse delay-300"></div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-sm whitespace-pre-line">
+                      {rsiInsights}
+                    </div>
+                  )}
                 </div>
               )}
             </Card>

@@ -1,0 +1,20 @@
+(()=>{var e={};e.id=122,e.ids=[122],e.modules={10846:e=>{"use strict";e.exports=require("next/dist/compiled/next-server/app-page.runtime.prod.js")},44870:e=>{"use strict";e.exports=require("next/dist/compiled/next-server/app-route.runtime.prod.js")},3295:e=>{"use strict";e.exports=require("next/dist/server/app-render/after-task-async-storage.external.js")},29294:e=>{"use strict";e.exports=require("next/dist/server/app-render/work-async-storage.external.js")},63033:e=>{"use strict";e.exports=require("next/dist/server/app-render/work-unit-async-storage.external.js")},27981:(e,t,r)=>{"use strict";r.r(t),r.d(t,{patchFetch:()=>f,routeModule:()=>c,serverHooks:()=>g,workAsyncStorage:()=>l,workUnitAsyncStorage:()=>m});var n={};r.r(n),r.d(n,{POST:()=>d});var s=r(72837),o=r(21538),i=r(46497),a=r(89076);let u="AIzaSyD4NUoKLR4IS7Ba5-taVGzt_KAZTYd5OE8",p={sendMessage:async(e,t)=>{try{if(!u)return{text:"Gemini API key is not configured. Please add it to your environment variables.",error:"API key missing"};let r=`You are an AI Financial Analyst assistant for the AI Hedge Fund dashboard.
+Your role is to help users understand market data, stock movements, financial indicators, and investment strategies.
+
+- Be concise but informative in your explanations
+- When discussing stocks, provide balanced perspectives on risks and opportunities
+- Use professional financial terminology but explain complex concepts simply
+- If asked about specific financial advice, remind users you're providing information, not financial advice
+- When appropriate, mention data sources or limitations
+- Focus on being helpful for investment research and analysis
+- If you don't know something, admit it rather than speculating
+
+IMPORTANT: You are limited to 800 tokens in your response. To ensure your responses are complete:
+1. Be concise and prioritize the most important information
+2. Structure longer explanations with bullet points or numbered lists
+3. Conclude your thoughts properly without cutting off mid-sentence
+4. If you're answering a complex question, focus on the key points and offer to provide more details if needed`,n=t?`Context: ${t}
+
+Question: ${e}`:e,s=`${r}
+
+${n}`,o=await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${u}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contents:[{parts:[{text:s}]}],generationConfig:{temperature:.3,topP:.9,topK:32,maxOutputTokens:800}})});if(!o.ok)throw Error(`Gemini API error: ${o.status} ${o.statusText}`);let i=await o.json();if(i.candidates&&i.candidates.length>0){let e="";for(let t of i.candidates[0].content.parts)t.text&&(e+=t.text);return{text:e}}throw Error("No response from Gemini API")}catch(e){return console.error("Error sending message to AI:",e),{text:"I'm sorry, I couldn't process your request at this time. Please try again later.",error:e instanceof Error?e.message:"Unknown error"}}}};async function d(e){try{let{message:t,context:r}=await e.json();if(!t)return a.NextResponse.json({error:"Message is required"},{status:400});let n=await p.sendMessage(t,r);return a.NextResponse.json(n)}catch(e){return console.error("Error calling Gemini API:",e),a.NextResponse.json({error:e.message||"Internal server error"},{status:500})}}let c=new s.AppRouteRouteModule({definition:{kind:o.RouteKind.APP_ROUTE,page:"/api/ai/gemini/route",pathname:"/api/ai/gemini",filename:"route",bundlePath:"app/api/ai/gemini/route"},resolvedPagePath:"/Users/blakesingleton/Desktop/AIHedgeFund/apps/web/src/app/api/ai/gemini/route.ts",nextConfigOutput:"",userland:n}),{workAsyncStorage:l,workUnitAsyncStorage:m,serverHooks:g}=c;function f(){return(0,i.patchFetch)({workAsyncStorage:l,workUnitAsyncStorage:m})}},40438:()=>{},63998:()=>{},72837:(e,t,r)=>{"use strict";e.exports=r(44870)}};var t=require("../../../../webpack-runtime.js");t.C(e);var r=e=>t(t.s=e),n=t.X(0,[26],()=>r(27981));module.exports=n})();

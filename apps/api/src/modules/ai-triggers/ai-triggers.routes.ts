@@ -45,7 +45,17 @@ export const aiTriggersRoutes = new Hono()
         eventType: data.event_type 
       });
       
-      const result = await aiTriggersService.registerTrigger(data);
+      // Ensure required fields exist
+      if (!data.ticker || !data.event_type) {
+        return c.json({
+          status: "error",
+          message: "Missing required fields: ticker and event_type must be provided",
+          code: 400
+        }, 400);
+      }
+      
+      // Since we've verified the required fields exist, we can safely assert the type
+      const result = await aiTriggersService.registerTrigger(data as { ticker: string; event_type: string; details?: any });
       
       return c.json({ status: "success", data: result });
     } catch (error: any) {

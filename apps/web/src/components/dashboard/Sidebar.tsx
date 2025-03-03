@@ -10,12 +10,17 @@ import {
   Briefcase, 
   Eye, 
   DollarSign,
-  Home
+  Home,
+  List,
+  Search,
+  BrainCircuit
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const sidebarLinks = [
   { name: "Dashboard", href: "/dashboard", icon: Home },
+  { name: "Watchlist", href: "/watchlist", icon: List },
+  { name: "AI Query", href: "/ai-query", icon: BrainCircuit },
   { name: "Alerts", href: "/dashboard/alerts", icon: Bell },
   { name: "Hedge Funds", href: "/dashboard/hedge-funds", icon: Briefcase },
   { name: "Insider Trading", href: "/dashboard/insider-trading", icon: Eye },

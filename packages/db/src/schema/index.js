@@ -15,6 +15,13 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 // Export all schema modules
-__exportStar(require("./user-preferences"), exports);
-__exportStar(require("./stock-updates"), exports);
-__exportStar(require("./stock-events"), exports);
+export * from "./user-preferences.js";
+export * from "./stock-updates.js";
+export * from "./stock-events.js";
+export * from "./ai-triggers.js";
+export * from "./market-data.js";
+export * from "./portfolio.js";
+export * from "./ai-queries.js";
+export * from "./unusual-whales.js";
+export * from "./newsletter.js";
+export * from "./auth.js";

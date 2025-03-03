@@ -19,7 +19,12 @@ export function Header() {
         </div>
 
         <nav className="hidden md:flex items-center space-x-8">
-          {/* Navigation links removed as requested */}
+          <Link href="/dashboard" className="text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400">
+            Dashboard
+          </Link>
+          <Link href="/watchlist" className="text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400">
+            Watchlist
+          </Link>
         </nav>
 
         <div className="flex items-center space-x-4">
@@ -63,7 +68,12 @@ export function Header() {
             </SheetTrigger>
             <SheetContent side="right">
               <div className="flex flex-col gap-6 mt-6">
-                {/* Mobile menu links removed as requested */}
+                <Link href="/dashboard" onClick={() => setIsOpen(false)} className="text-lg">
+                  Dashboard
+                </Link>
+                <Link href="/watchlist" onClick={() => setIsOpen(false)} className="text-lg">
+                  Watchlist
+                </Link>
                 
                 <div className="border-t pt-4 mt-2">
                   <SignedIn>

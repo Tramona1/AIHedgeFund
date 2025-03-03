@@ -1,0 +1,11 @@
+declare module '@repo/db/schema' {
+  export * from '../packages/db/src/schema/index';
+}
+
+declare module '@repo/db/schema/index.js' {
+  export * from '../packages/db/src/schema/index';
+}
+
+declare module '@repo/db/schema/unusual-whales.js' {
+  export * from '../packages/db/src/schema/unusual-whales';
+} 

@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./schema/index";
-import { userPreferences, users } from "./schema/user-preferences";
+import { userPreferences, userPreferencesTable } from "./schema/user-preferences";
 import { stockUpdates } from "./schema/stock-updates";
 import { aiTriggers } from "./schema/ai-triggers";
 
@@ -23,7 +23,7 @@ export const db = drizzle(client, {
     ...schema,
     // Also expose the tables directly
     userPreferences,
-    users,
+    userPreferencesTable,
     stockUpdates,
     aiTriggers
   } 

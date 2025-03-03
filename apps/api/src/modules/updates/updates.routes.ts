@@ -8,7 +8,7 @@ const routeLogger = logger.child({ component: "updates-routes" });
 
 // Define validation schema for stock updates
 const stockUpdateSchema = z.object({
-  ticker: z.string(),
+  ticker: z.string().min(1, "Ticker is required"),
   eventType: z.enum([
     "hedge_fund_buy",
     "hedge_fund_sell",
@@ -18,8 +18,8 @@ const stockUpdateSchema = z.object({
     "option_flow",
     "dark_pool_buy"
   ]),
-  title: z.string(),
-  content: z.string(),
+  title: z.string().min(1, "Title is required"),
+  content: z.string().min(1, "Content is required"),
   details: z.record(z.string(), z.any()).optional(),
   source: z.string().optional(),
 });
@@ -32,7 +32,6 @@ export const updatesRoutes = new Hono()
   // POST /api/updates - Create a new stock update
   .post("/", async (c) => {
     try {
-      // Manual validation as a workaround
       const body = await c.req.json();
       const validation = stockUpdateSchema.safeParse(body);
       
@@ -45,7 +44,9 @@ export const updatesRoutes = new Hono()
         }, 400);
       }
       
-      const data = validation.data;
+      // The data is now validated and confirmed to have all required fields
+      // Use the validated data directly
+      const data = validation.data as any;
       
       routeLogger.info("Received stock update creation request", { 
         ticker: data.ticker, 

@@ -9,6 +9,8 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/Badge"
+import { useUser } from "@clerk/nextjs"
+import { userPreferencesAPI, UserPreferences } from "@/lib/api"
 
 // Import the same interfaces used in the dashboard
 interface Ticker {
@@ -23,39 +25,189 @@ interface UserState {
 }
 
 export default function SettingsPage() {
-  // Added user state for tickers, matching dashboard implementation
+  const { isLoaded, user } = useUser()
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveMessage, setSaveMessage] = useState<{ type: "success" | "error"; message: string } | null>(null)
+  
+  // User state for tickers, matching dashboard implementation
   const [userState, setUserState] = useState<UserState>({
     tickers: []
   })
 
-  const [emailPreferences, setEmailPreferences] = useState({
-    dailyDigest: true,
-    weeklyReport: true,
-    priceAlerts: true,
-    insiderTrading: true,
-    hedgeFundActivity: true,
+  // State for preferences
+  const [preferences, setPreferences] = useState<Partial<UserPreferences>>({
+    tickers: [],
+    customTriggers: {
+      dailyDigest: true,
+      weeklyReport: true, 
+      priceAlerts: true,
+      insiderTrading: true,
+      hedgeFundActivity: true,
+    }
   })
 
-  // Load user tickers from localStorage on component mount
+  // Load user preferences from API on component mount
   useEffect(() => {
-    const savedState = localStorage.getItem('user_tickers')
-    if (savedState) {
-      setUserState(JSON.parse(savedState))
+    if (!isLoaded || !user) return
+    
+    const loadUserPreferences = async () => {
+      try {
+        setIsLoading(true)
+        
+        // Load from API
+        const response = await userPreferencesAPI.get(user.id)
+        
+        if (response.userPreferences) {
+          // Initialize custom triggers if they don't exist
+          const customTriggers = response.userPreferences.customTriggers || {
+            dailyDigest: true,
+            weeklyReport: true,
+            priceAlerts: true,
+            insiderTrading: true,
+            hedgeFundActivity: true,
+          }
+          
+          setPreferences({
+            ...response.userPreferences,
+            customTriggers
+          })
+          
+          // Also load tickers for display
+          if (response.userPreferences.tickers) {
+            const tickerObjects = response.userPreferences.tickers.map((symbol: string) => ({
+              symbol,
+              price: Math.floor(Math.random() * 1000) / 10 + 50,
+              change: Math.floor(Math.random() * 60) / 10 - 3,
+            }))
+            
+            setUserState({
+              tickers: tickerObjects
+            })
+          }
+        }
+        
+        // Also check localStorage for any tickers not yet saved to API
+        const savedState = localStorage.getItem('user_tickers')
+        if (savedState) {
+          const localTickers = JSON.parse(savedState)
+          
+          // Check if there are tickers in localStorage not in the API response
+          if (localTickers.tickers && localTickers.tickers.length > 0) {
+            const apiTickerSymbols = preferences.tickers || []
+            const newTickers = localTickers.tickers.filter(
+              (ticker: Ticker) => !apiTickerSymbols.includes(ticker.symbol)
+            )
+            
+            if (newTickers.length > 0) {
+              // Add any new tickers to both state objects
+              setUserState(prev => ({
+                ...prev,
+                tickers: [...prev.tickers, ...newTickers]
+              }))
+              
+              setPreferences(prev => ({
+                ...prev,
+                tickers: [
+                  ...(prev.tickers || []), 
+                  ...newTickers.map((t: Ticker) => t.symbol)
+                ]
+              }))
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error loading user preferences:", error)
+      } finally {
+        setIsLoading(false)
+      }
     }
-  }, [])
+    
+    loadUserPreferences()
+  }, [isLoaded, user])
+
+  // Toggle email preference
+  const toggleEmailPreference = (key: string, value: boolean) => {
+    setPreferences({
+      ...preferences,
+      customTriggers: {
+        ...(preferences.customTriggers || {}),
+        [key]: value
+      }
+    })
+  }
 
   // Remove a ticker
   const removeTicker = (symbol: string) => {
+    // Update userState for UI
     setUserState(prev => ({
       ...prev,
       tickers: prev.tickers.filter(ticker => ticker.symbol !== symbol)
     }))
     
-    // Save to localStorage after removing
-    localStorage.setItem('user_tickers', JSON.stringify({
-      ...userState,
-      tickers: userState.tickers.filter(ticker => ticker.symbol !== symbol)
+    // Update preferences for API
+    setPreferences(prev => ({
+      ...prev,
+      tickers: (prev.tickers || []).filter(ticker => ticker !== symbol)
     }))
+    
+    // Also update localStorage to stay in sync
+    const currentLocalStorage = localStorage.getItem('user_tickers')
+    if (currentLocalStorage) {
+      const parsedData = JSON.parse(currentLocalStorage)
+      parsedData.tickers = parsedData.tickers.filter((ticker: Ticker) => ticker.symbol !== symbol)
+      localStorage.setItem('user_tickers', JSON.stringify(parsedData))
+    }
+  }
+  
+  // Save all changes
+  const saveChanges = async () => {
+    if (!isLoaded || !user) return
+    
+    try {
+      setIsSaving(true)
+      setSaveMessage(null)
+      
+      // Prepare data for API
+      const preferencesData = {
+        userId: user.id,
+        email: user.emailAddresses[0]?.emailAddress || "",
+        tickers: preferences.tickers || [],
+        sectors: preferences.sectors || [],
+        tradingStyle: preferences.tradingStyle || "Growth",
+        updateFrequency: preferences.updateFrequency || "weekly",
+        customTriggers: preferences.customTriggers
+      }
+      
+      // Call API to update preferences
+      await userPreferencesAPI.update(preferencesData)
+      
+      setSaveMessage({
+        type: "success",
+        message: "Your settings have been saved successfully."
+      })
+    } catch (error) {
+      console.error("Error saving settings:", error)
+      
+      setSaveMessage({
+        type: "error",
+        message: "Failed to save settings. Please try again."
+      })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background py-6">
+        <Container>
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          </div>
+        </Container>
+      </div>
+    )
   }
 
   return (
@@ -113,12 +265,9 @@ export default function SettingsPage() {
                   <Label htmlFor="daily-digest">Daily Market Digest</Label>
                   <Switch
                     id="daily-digest"
-                    checked={emailPreferences.dailyDigest}
+                    checked={preferences.customTriggers?.dailyDigest || false}
                     onCheckedChange={(checked: boolean) =>
-                      setEmailPreferences({
-                        ...emailPreferences,
-                        dailyDigest: checked,
-                      })
+                      toggleEmailPreference('dailyDigest', checked)
                     }
                   />
                 </div>
@@ -127,12 +276,9 @@ export default function SettingsPage() {
                   <Label htmlFor="weekly-report">Weekly Performance Report</Label>
                   <Switch
                     id="weekly-report"
-                    checked={emailPreferences.weeklyReport}
+                    checked={preferences.customTriggers?.weeklyReport || false}
                     onCheckedChange={(checked: boolean) =>
-                      setEmailPreferences({
-                        ...emailPreferences,
-                        weeklyReport: checked,
-                      })
+                      toggleEmailPreference('weeklyReport', checked)
                     }
                   />
                 </div>
@@ -141,12 +287,9 @@ export default function SettingsPage() {
                   <Label htmlFor="price-alerts">Price Movement Alerts</Label>
                   <Switch
                     id="price-alerts"
-                    checked={emailPreferences.priceAlerts}
+                    checked={preferences.customTriggers?.priceAlerts || false}
                     onCheckedChange={(checked: boolean) =>
-                      setEmailPreferences({
-                        ...emailPreferences,
-                        priceAlerts: checked,
-                      })
+                      toggleEmailPreference('priceAlerts', checked)
                     }
                   />
                 </div>
@@ -155,12 +298,9 @@ export default function SettingsPage() {
                   <Label htmlFor="insider-trading">Insider Trading Alerts</Label>
                   <Switch
                     id="insider-trading"
-                    checked={emailPreferences.insiderTrading}
+                    checked={preferences.customTriggers?.insiderTrading || false}
                     onCheckedChange={(checked: boolean) =>
-                      setEmailPreferences({
-                        ...emailPreferences,
-                        insiderTrading: checked,
-                      })
+                      toggleEmailPreference('insiderTrading', checked)
                     }
                   />
                 </div>
@@ -169,18 +309,30 @@ export default function SettingsPage() {
                   <Label htmlFor="hedge-fund">Hedge Fund Activity Alerts</Label>
                   <Switch
                     id="hedge-fund"
-                    checked={emailPreferences.hedgeFundActivity}
+                    checked={preferences.customTriggers?.hedgeFundActivity || false}
                     onCheckedChange={(checked: boolean) =>
-                      setEmailPreferences({
-                        ...emailPreferences,
-                        hedgeFundActivity: checked,
-                      })
+                      toggleEmailPreference('hedgeFundActivity', checked)
                     }
                   />
                 </div>
               </div>
             </CardContent>
           </Card>
+          
+          {saveMessage && (
+            <div className={`p-3 rounded ${saveMessage.type === "success" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+              {saveMessage.message}
+            </div>
+          )}
+          
+          <div className="flex justify-end">
+            <Button 
+              onClick={saveChanges} 
+              disabled={isSaving}
+            >
+              {isSaving ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
         </div>
       </Container>
     </div>

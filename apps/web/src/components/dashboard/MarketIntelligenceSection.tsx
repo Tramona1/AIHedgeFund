@@ -7,43 +7,46 @@ import { Badge } from "@/components/ui/Badge"
 import { Button } from "@/components/ui/Button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { stockUpdatesAPI, StockUpdate } from "@/lib/api"
+import { useUser } from "@clerk/nextjs"
 
 // Define interfaces for our data types
 interface HedgeFundActivity {
-  id: number;
-  fund: string;
-  action: string;
+  id: string;
   ticker: string;
-  details: string;
-  timestamp: string;
+  eventType: string;
+  title: string;
+  content: string;
+  createdAt: string;
 }
 
 interface InsiderTrading {
-  id: number;
-  insider: string;
-  role: string;
+  id: string;
   ticker: string;
-  action: string;
-  details: string;
-  timestamp: string;
+  eventType: string;
+  title: string;
+  content: string;
+  createdAt: string;
 }
 
 interface OptionsFlow {
-  id: number;
+  id: string;
   ticker: string;
-  type: string;
-  details: string;
-  premium: string;
-  timestamp: string;
+  eventType: string;
+  title: string;
+  content: string;
+  createdAt: string;
+  details?: Record<string, any>;
 }
 
 interface TechnicalSignal {
-  id: number;
+  id: string;
   ticker: string;
-  signal: string;
-  details: string;
-  strength: string;
-  timestamp: string;
+  eventType: string;
+  title: string;
+  content: string;
+  createdAt: string;
+  details?: Record<string, any>;
 }
 
 interface MarketData {
@@ -51,125 +54,6 @@ interface MarketData {
   insiderTrading: InsiderTrading[];
   optionsFlow: OptionsFlow[];
   technicalSignals: TechnicalSignal[];
-}
-
-// Sample market intelligence data (this would come from an API in a real application)
-const sampleData: MarketData = {
-  hedgeFundActivity: [
-    {
-      id: 1,
-      fund: "Renaissance Technologies",
-      action: "Increases Position",
-      ticker: "NVDA",
-      details: "Added 1.2M shares worth approximately $580M",
-      timestamp: "2 hours ago",
-    },
-    {
-      id: 2,
-      fund: "Citadel",
-      action: "New Position",
-      ticker: "AAPL",
-      details: "Purchased 2.5M shares worth $450M",
-      timestamp: "4 hours ago",
-    },
-    {
-      id: 3,
-      fund: "BlackRock",
-      action: "Decreases Position",
-      ticker: "MSFT",
-      details: "Reduced position by 800K shares worth $290M",
-      timestamp: "6 hours ago",
-    },
-    {
-      id: 4,
-      fund: "D.E. Shaw",
-      action: "Closes Position",
-      ticker: "TSLA",
-      details: "Exited entire position worth $720M",
-      timestamp: "1 day ago",
-    },
-  ],
-  insiderTrading: [
-    {
-      id: 1,
-      insider: "Tim Cook",
-      role: "CEO",
-      ticker: "AAPL",
-      action: "Sold",
-      details: "100,000 shares worth $18M following vesting schedule",
-      timestamp: "4 hours ago",
-    },
-    {
-      id: 2,
-      insider: "Lisa Su",
-      role: "CEO",
-      ticker: "AMD",
-      action: "Purchased",
-      details: "25,000 shares worth $2.8M",
-      timestamp: "1 day ago",
-    },
-    {
-      id: 3,
-      insider: "Satya Nadella",
-      role: "CEO",
-      ticker: "MSFT",
-      action: "Sold",
-      details: "50,000 shares worth $17.5M",
-      timestamp: "2 days ago",
-    },
-  ],
-  optionsFlow: [
-    {
-      id: 1,
-      ticker: "TSLA",
-      type: "PUT",
-      details: "$5M in June 2024 puts purchased at $200 strike",
-      premium: "$2.1M",
-      timestamp: "1 hour ago",
-    },
-    {
-      id: 2,
-      ticker: "NVDA",
-      type: "CALL",
-      details: "$3.2M in July 2024 calls purchased at $500 strike",
-      premium: "$1.8M",
-      timestamp: "3 hours ago",
-    },
-    {
-      id: 3,
-      ticker: "AMZN",
-      type: "CALL",
-      details: "$4.5M in August 2024 calls purchased at $180 strike",
-      premium: "$3.2M",
-      timestamp: "5 hours ago",
-    },
-  ],
-  technicalSignals: [
-    {
-      id: 1,
-      ticker: "AAPL",
-      signal: "Golden Cross",
-      details: "50-day MA crosses above 200-day MA",
-      strength: "Strong Buy",
-      timestamp: "Today",
-    },
-    {
-      id: 2,
-      ticker: "MSFT",
-      signal: "RSI Oversold",
-      details: "RSI drops below 30 on 4H timeframe",
-      strength: "Buy",
-      timestamp: "Today",
-    },
-    {
-      id: 3,
-      ticker: "AMZN",
-      signal: "MACD Bullish",
-      details: "MACD line crosses above signal line",
-      strength: "Buy",
-      timestamp: "Yesterday",
-    },
-  ],
 }
 
 interface MarketIntelligenceSectionProps {
@@ -180,17 +64,92 @@ export function MarketIntelligenceSection({ openAiChatAction }: MarketIntelligen
   const [activeTab, setActiveTab] = useState("hedge-fund")
   const [feedMode, setFeedMode] = useState<"general" | "user-tickers">("general")
   const [userTickers, setUserTickers] = useState<string[]>([])
+  const [marketData, setMarketData] = useState<MarketData>({
+    hedgeFundActivity: [],
+    insiderTrading: [],
+    optionsFlow: [],
+    technicalSignals: []
+  })
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const { user, isLoaded } = useUser()
 
   // Load user tickers from localStorage
   useEffect(() => {
-    const savedState = localStorage.getItem('user_tickers')
+    const savedState = localStorage.getItem('userState')
     if (savedState) {
-      const parsedState = JSON.parse(savedState)
-      if (parsedState.tickers && Array.isArray(parsedState.tickers)) {
-        setUserTickers(parsedState.tickers.map((t: any) => t.symbol))
+      try {
+        const parsedState = JSON.parse(savedState)
+        if (parsedState.tickers && Array.isArray(parsedState.tickers)) {
+          setUserTickers(parsedState.tickers.map((t: any) => t.symbol))
+        }
+      } catch (e) {
+        console.error('Error parsing localStorage:', e)
       }
     }
   }, [])
+
+  // Fetch market data from API
+  useEffect(() => {
+    const fetchMarketData = async () => {
+      if (!isLoaded) return
+      
+      try {
+        setIsLoading(true)
+        setError(null)
+        
+        // Fetch stock updates from API
+        const stockUpdatesData = await stockUpdatesAPI.getAll()
+        
+        // Check if we got a structured error response (type assertion needed since our API types don't include error fields)
+        const response = stockUpdatesData as any
+        if (response.error) {
+          console.error('API error:', response.error, response.message)
+          setError(response.message || 'Failed to load market intelligence. Please try again later.')
+          return
+        }
+        
+        const updates = stockUpdatesData.updates || []
+        
+        // Categorize updates by event type
+        const hedgeFundUpdates = updates.filter(update => 
+          update.eventType === 'hedge_fund_buy' || 
+          update.eventType === 'hedge_fund_sell'
+        )
+        
+        const insiderUpdates = updates.filter(update => 
+          update.eventType === 'insider_buy' || 
+          update.eventType === 'insider_sell' ||
+          update.eventType.includes('insider_')
+        )
+        
+        const optionsUpdates = updates.filter(update => 
+          update.eventType === 'option_flow' ||
+          update.eventType.includes('option_')
+        )
+        
+        const technicalUpdates = updates.filter(update => 
+          update.eventType === 'technical_signal' || 
+          update.eventType.includes('technical_')
+        )
+        
+        // Update state with categorized data
+        setMarketData({
+          hedgeFundActivity: hedgeFundUpdates,
+          insiderTrading: insiderUpdates,
+          optionsFlow: optionsUpdates,
+          technicalSignals: technicalUpdates
+        })
+      } catch (error) {
+        console.error('Error fetching market data:', error)
+        setError('Failed to load market intelligence. Please try again later.')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    
+    fetchMarketData()
+  }, [isLoaded])
 
   // Filter data based on the selected feed mode
   const getFilteredData = <T extends { ticker: string }>(dataArray: T[]): T[] => {
@@ -209,47 +168,73 @@ export function MarketIntelligenceSection({ openAiChatAction }: MarketIntelligen
 
   // Get appropriate empty state message based on feed mode
   const getEmptyStateMessage = () => {
-    if (feedMode === "general") {
-      return "No market intelligence data available at the moment"
-    } else {
-      return userTickers.length === 0 
-        ? "No tickers selected. Add tickers to your watchlist to see relevant intelligence." 
-        : "No market intelligence available for your selected tickers"
+    if (feedMode === "user-tickers" && userTickers.length === 0) {
+      return "Add tickers to your watchlist to see personalized updates"
+    }
+    
+    if (isLoading) {
+      return "Loading market intelligence..."
+    }
+    
+    if (error) {
+      return error
+    }
+    
+    return "No market intelligence available at this time"
+  }
+
+  // Helper function to format timestamp
+  const formatTimestamp = (timestamp: string) => {
+    try {
+      const date = new Date(timestamp)
+      const now = new Date()
+      const diffMs = now.getTime() - date.getTime()
+      const diffMins = Math.floor(diffMs / 60000)
+      const diffHrs = Math.floor(diffMins / 60)
+      const diffDays = Math.floor(diffHrs / 24)
+      
+      if (diffMins < 60) {
+        return diffMins <= 1 ? 'Just now' : `${diffMins} minutes ago`
+      } else if (diffHrs < 24) {
+        return diffHrs === 1 ? '1 hour ago' : `${diffHrs} hours ago`
+      } else if (diffDays < 7) {
+        return diffDays === 1 ? 'Yesterday' : `${diffDays} days ago`
+      } else {
+        return date.toLocaleDateString()
+      }
+    } catch (e) {
+      return timestamp
     }
   }
 
   return (
     <Card>
-      <CardHeader className="space-y-1">
-        <div className="flex justify-between items-center">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
           <CardTitle>Market Intelligence</CardTitle>
-          <div className="flex space-x-4">
-            <Button 
-              variant={feedMode === "general" ? "default" : "outline"} 
-              size="sm"
-              onClick={() => setFeedMode("general")}
-            >
-              General Market
-            </Button>
-            <Button 
-              variant={feedMode === "user-tickers" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setFeedMode("user-tickers")}
-            >
-              Your Tickers
-            </Button>
+          <div className="flex items-center gap-2">
+            {userTickers.length > 0 && (
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant={feedMode === "general" ? "outline" : "default"}
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => setFeedMode("user-tickers")}
+                >
+                  My Tickers
+                </Button>
+                <Button
+                  variant={feedMode === "general" ? "default" : "outline"}
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => setFeedMode("general")}
+                >
+                  All Updates
+                </Button>
+              </div>
+            )}
           </div>
         </div>
-        {feedMode === "user-tickers" && userTickers.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-2">
-            <span className="text-xs text-muted-foreground mr-1">Filtering for:</span>
-            {userTickers.map(ticker => (
-              <Badge key={ticker} variant="outline" className="bg-primary/10 text-primary text-xs">
-                ${ticker}
-              </Badge>
-            ))}
-          </div>
-        )}
       </CardHeader>
       <CardContent>
         <Tabs 
@@ -279,8 +264,12 @@ export function MarketIntelligenceSection({ openAiChatAction }: MarketIntelligen
 
           {/* Hedge Fund Activity */}
           <TabsContent value="hedge-fund" className="space-y-4">
-            {getFilteredData(sampleData.hedgeFundActivity).length > 0 ? (
-              getFilteredData(sampleData.hedgeFundActivity).map((activity) => (
+            {isLoading ? (
+              <div className="flex items-center justify-center p-8">
+                <p className="text-muted-foreground">Loading hedge fund activity...</p>
+              </div>
+            ) : getFilteredData(marketData.hedgeFundActivity).length > 0 ? (
+              getFilteredData(marketData.hedgeFundActivity).map((activity) => (
                 <motion.div 
                   key={activity.id} 
                   initial={{ opacity: 0, y: 20 }} 
@@ -296,11 +285,9 @@ export function MarketIntelligenceSection({ openAiChatAction }: MarketIntelligen
                               ${activity.ticker}
                             </Badge>
                           </div>
-                          <h3 className="font-semibold">
-                            {activity.fund} {activity.action}
-                          </h3>
-                          <p className="text-sm text-muted-foreground">{activity.details}</p>
-                          <div className="text-xs text-muted-foreground">{activity.timestamp}</div>
+                          <h3 className="font-semibold">{activity.title}</h3>
+                          <p className="text-sm text-muted-foreground">{activity.content}</p>
+                          <div className="text-xs text-muted-foreground">{formatTimestamp(activity.createdAt)}</div>
                         </div>
                         <div className="flex gap-2">
                           <Button variant="ghost" size="icon">
@@ -313,7 +300,7 @@ export function MarketIntelligenceSection({ openAiChatAction }: MarketIntelligen
                             onClick={(e) => {
                               e.stopPropagation()
                               openAiChatAction(
-                                `This hedge fund activity is relevant because it shows significant institutional movement that could impact the stock price. When large funds make moves of this size (${activity.details}), it often signals a strong conviction about the company's future prospects.`,
+                                `This hedge fund activity is relevant because it shows significant institutional movement that could impact the stock price of ${activity.ticker}. ${activity.content}`
                               )
                             }}
                           >
@@ -332,8 +319,12 @@ export function MarketIntelligenceSection({ openAiChatAction }: MarketIntelligen
 
           {/* Insider Trading */}
           <TabsContent value="insider" className="space-y-4">
-            {getFilteredData(sampleData.insiderTrading).length > 0 ? (
-              getFilteredData(sampleData.insiderTrading).map((trade) => (
+            {isLoading ? (
+              <div className="flex items-center justify-center p-8">
+                <p className="text-muted-foreground">Loading insider trading data...</p>
+              </div>
+            ) : getFilteredData(marketData.insiderTrading).length > 0 ? (
+              getFilteredData(marketData.insiderTrading).map((trade) => (
                 <motion.div 
                   key={trade.id} 
                   initial={{ opacity: 0, y: 20 }} 
@@ -349,11 +340,9 @@ export function MarketIntelligenceSection({ openAiChatAction }: MarketIntelligen
                               ${trade.ticker}
                             </Badge>
                           </div>
-                          <h3 className="font-semibold">
-                            {trade.insider} ({trade.role}) {trade.action}
-                          </h3>
-                          <p className="text-sm text-muted-foreground">{trade.details}</p>
-                          <div className="text-xs text-muted-foreground">{trade.timestamp}</div>
+                          <h3 className="font-semibold">{trade.title}</h3>
+                          <p className="text-sm text-muted-foreground">{trade.content}</p>
+                          <div className="text-xs text-muted-foreground">{formatTimestamp(trade.createdAt)}</div>
                         </div>
                         <div className="flex gap-2">
                           <Button variant="ghost" size="icon">
@@ -366,7 +355,7 @@ export function MarketIntelligenceSection({ openAiChatAction }: MarketIntelligen
                             onClick={(e) => {
                               e.stopPropagation()
                               openAiChatAction(
-                                `Insider trading activity is significant because ${trade.insider}, as ${trade.role}, has direct knowledge of the company's operations. Their decision to ${trade.action.toLowerCase()} shares could indicate their perspective on the company's future performance.`,
+                                `Insider trading activity is significant for ${trade.ticker}. ${trade.content}`
                               )
                             }}
                           >
@@ -385,8 +374,12 @@ export function MarketIntelligenceSection({ openAiChatAction }: MarketIntelligen
 
           {/* Options Flow */}
           <TabsContent value="options" className="space-y-4">
-            {getFilteredData(sampleData.optionsFlow).length > 0 ? (
-              getFilteredData(sampleData.optionsFlow).map((flow) => (
+            {isLoading ? (
+              <div className="flex items-center justify-center p-8">
+                <p className="text-muted-foreground">Loading options flow data...</p>
+              </div>
+            ) : getFilteredData(marketData.optionsFlow).length > 0 ? (
+              getFilteredData(marketData.optionsFlow).map((flow) => (
                 <motion.div 
                   key={flow.id} 
                   initial={{ opacity: 0, y: 20 }} 
@@ -401,12 +394,13 @@ export function MarketIntelligenceSection({ openAiChatAction }: MarketIntelligen
                             <Badge variant="outline" className="bg-primary/10 text-primary">
                               ${flow.ticker}
                             </Badge>
-                            <Badge>{flow.type}</Badge>
+                            <Badge>{flow.details?.type || 'FLOW'}</Badge>
                           </div>
-                          <h3 className="font-semibold">Large Options Activity</h3>
-                          <p className="text-sm text-muted-foreground">{flow.details}</p>
+                          <h3 className="font-semibold">{flow.title}</h3>
+                          <p className="text-sm text-muted-foreground">{flow.content}</p>
                           <div className="text-xs text-muted-foreground">
-                            Premium: {flow.premium} • {flow.timestamp}
+                            {flow.details?.premium && `Premium: ${flow.details.premium} • `}
+                            {formatTimestamp(flow.createdAt)}
                           </div>
                         </div>
                         <div className="flex gap-2">
@@ -420,9 +414,7 @@ export function MarketIntelligenceSection({ openAiChatAction }: MarketIntelligen
                             onClick={(e) => {
                               e.stopPropagation()
                               openAiChatAction(
-                                `This options activity is notable because the size of the premium (${flow.premium}) suggests strong directional conviction from institutional traders. The ${flow.type.toLowerCase()} position could indicate expectations of ${
-                                  flow.type === "CALL" ? "upward" : "downward"
-                                } price movement.`,
+                                `This options activity for ${flow.ticker} is notable. ${flow.content}`
                               )
                             }}
                           >
@@ -441,8 +433,12 @@ export function MarketIntelligenceSection({ openAiChatAction }: MarketIntelligen
 
           {/* Technical Signals */}
           <TabsContent value="technical" className="space-y-4">
-            {getFilteredData(sampleData.technicalSignals).length > 0 ? (
-              getFilteredData(sampleData.technicalSignals).map((signal) => (
+            {isLoading ? (
+              <div className="flex items-center justify-center p-8">
+                <p className="text-muted-foreground">Loading technical signals...</p>
+              </div>
+            ) : getFilteredData(marketData.technicalSignals).length > 0 ? (
+              getFilteredData(marketData.technicalSignals).map((signal) => (
                 <motion.div 
                   key={signal.id} 
                   initial={{ opacity: 0, y: 20 }} 
@@ -457,11 +453,21 @@ export function MarketIntelligenceSection({ openAiChatAction }: MarketIntelligen
                             <Badge variant="outline" className="bg-primary/10 text-primary">
                               ${signal.ticker}
                             </Badge>
-                            <Badge>{signal.strength}</Badge>
+                            <Badge 
+                              className={`${
+                                signal.details?.strength === 'Strong Buy' || signal.details?.strength === 'Buy'
+                                  ? 'bg-green-500'
+                                  : signal.details?.strength === 'Strong Sell' || signal.details?.strength === 'Sell'
+                                  ? 'bg-red-500'
+                                  : 'bg-yellow-500'
+                              }`}
+                            >
+                              {signal.details?.strength || 'SIGNAL'}
+                            </Badge>
                           </div>
-                          <h3 className="font-semibold">{signal.signal}</h3>
-                          <p className="text-sm text-muted-foreground">{signal.details}</p>
-                          <div className="text-xs text-muted-foreground">{signal.timestamp}</div>
+                          <h3 className="font-semibold">{signal.title}</h3>
+                          <p className="text-sm text-muted-foreground">{signal.content}</p>
+                          <div className="text-xs text-muted-foreground">{formatTimestamp(signal.createdAt)}</div>
                         </div>
                         <div className="flex gap-2">
                           <Button variant="ghost" size="icon">
@@ -474,11 +480,7 @@ export function MarketIntelligenceSection({ openAiChatAction }: MarketIntelligen
                             onClick={(e) => {
                               e.stopPropagation()
                               openAiChatAction(
-                                `This technical signal (${signal.signal}) is important because it suggests a potential ${
-                                  signal.strength === "Buy" || signal.strength === "Strong Buy"
-                                    ? "bullish"
-                                    : "bearish"
-                                } price movement based on historical price patterns and momentum indicators.`,
+                                `This technical signal for ${signal.ticker} is important to consider. ${signal.content}`
                               )
                             }}
                           >
@@ -500,15 +502,12 @@ export function MarketIntelligenceSection({ openAiChatAction }: MarketIntelligen
   )
 }
 
-// Empty state component for when no data is available
+// Empty state component
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-10 text-center">
-      <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
-      <h3 className="text-lg font-medium mb-2">No Data Available</h3>
-      <p className="text-sm text-muted-foreground max-w-md">
-        {message}
-      </p>
+    <div className="flex flex-col items-center justify-center p-8 text-center">
+      <AlertCircle className="h-8 w-8 text-muted-foreground mb-2" />
+      <p className="text-muted-foreground">{message}</p>
     </div>
   )
 } 

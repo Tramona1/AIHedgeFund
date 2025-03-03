@@ -1,11 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ArrowRight, Bell, Briefcase, LineChartIcon as ChartLineUp, Clock, Eye, Shield, Zap } from "lucide-react"
+import { ArrowRight, Bell, Briefcase, LineChartIcon as ChartLineUp, Clock, Eye, Shield, Zap, Globe } from "lucide-react"
 import { motion } from "framer-motion"
 import Link from "next/link"
 import dynamic from 'next/dynamic'
 import { Suspense } from 'react'
+import { API_BASE_URL } from "@/lib/api-utils"
 
 import { Button } from "@/components/ui/Button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card"
@@ -16,6 +17,7 @@ import { Section } from "@/components/ui/Section"
 import { Badge } from "@/components/ui/Badge"
 import { FAQ } from "@/components/FAQ"
 import { InterestForm } from "@/components/InterestForm"
+import { InterestPopup } from "@/components/InterestPopup"
 
 // Animated ticker tape component
 function MarketTicker() {
@@ -169,24 +171,50 @@ export default function Home() {
   const [mounted, setMounted] = useState(false)
   const [email, setEmail] = useState("")
   const [isSubscribed, setIsSubscribed] = useState(false)
+  const [showInterestsPopup, setShowInterestsPopup] = useState(false)
 
   // Ensure hydration is complete
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  const handleNewsletterSubmit = (e: React.FormEvent) => {
+  const handleNewsletterSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // In a real application, you would send this to your API
-    console.log("Newsletter subscription submitted for:", email)
-    // Show success message
-    setIsSubscribed(true)
-    // Reset form
-    setEmail("")
-    // Reset success message after 3 seconds
-    setTimeout(() => {
-      setIsSubscribed(false)
-    }, 3000)
+    try {
+      // Save email to the database
+      const response = await fetch(`${API_BASE_URL}/api/users/preferences`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          updateFrequency: 'weekly', // Default to weekly for newsletter subscribers
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to subscribe to newsletter');
+      }
+
+      // Show success message
+      setIsSubscribed(true)
+      
+      // Show interests popup after successful subscription
+      setTimeout(() => {
+        setShowInterestsPopup(true);
+      }, 1500);
+      
+      // Reset form
+      setEmail("")
+      
+      // Reset success message after 3 seconds
+      setTimeout(() => {
+        setIsSubscribed(false)
+      }, 3000)
+    } catch (error) {
+      console.error('Error subscribing to newsletter:', error);
+    }
   }
 
   // Return simplified content for first paint
@@ -220,7 +248,7 @@ export default function Home() {
               className="flex flex-col justify-center space-y-6"
             >
               <Badge variant="secondary" className="w-fit">
-                Stay Informed About What You Own—For Free
+                Get AI powered insights - Stay Informed About What You Own
               </Badge>
 
               <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-5xl lg:text-6xl">
@@ -270,6 +298,139 @@ export default function Home() {
         </Container>
       </Section>
 
+      {/* Our Vision Section */}
+      <Section className="py-20 bg-white">
+        <Container>
+          <div className="grid md:grid-cols-2 gap-12 items-center">
+            {/* Left side - Text Content */}
+            <div>
+              <h3 className="text-xl font-medium text-blue-600 mb-6">Our vision</h3>
+              
+              <h2 className="text-5xl font-bold mb-6">
+                Use AI to give everyone the upperhand
+              </h2>
+
+              <h4 className="text-2xl font-medium text-blue-700 mb-8">Easy, simple information directly to you</h4>
+              
+              <div className="space-y-6">
+                <div className="flex items-start gap-4">
+                  <div className="bg-blue-100 p-2 rounded-md mt-1">
+                    <Briefcase className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-lg text-blue-900 font-medium">
+                      The current investing landscape selects winners based on special access to information instead of skill.
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-4">
+                  <div className="bg-blue-100 p-2 rounded-md mt-1">
+                    <Zap className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-lg text-blue-900 font-medium">
+                      AI Hedge Fund uses AI to predict market moves before they happen, giving you institutional-grade insights.
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="mt-8">
+                  <Link href="/signup">
+                    <Button size="lg">
+                      Learn more
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </div>
+            
+            {/* Right side - Product Visualization */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.7 }}
+              className="relative"
+            >
+              <div className="relative bg-white border border-blue-100 rounded-xl shadow-lg overflow-hidden">
+                {/* Ticker tape header */}
+                <div className="bg-blue-50 border-b border-blue-100 p-3">
+                  <div className="flex space-x-4 overflow-x-auto">
+                    <div className="flex items-center whitespace-nowrap">
+                      <span className="font-semibold text-blue-900">AAPL</span>
+                      <span className="ml-2 text-green-500">+1.2%</span>
+                    </div>
+                    <div className="flex items-center whitespace-nowrap">
+                      <span className="font-semibold text-blue-900">TSLA</span>
+                      <span className="ml-2 text-red-500">-0.6%</span>
+                    </div>
+                    <div className="flex items-center whitespace-nowrap">
+                      <span className="font-semibold text-blue-900">NVDA</span>
+                      <span className="ml-2 text-green-500">+3.2%</span>
+                    </div>
+                    <div className="flex items-center whitespace-nowrap">
+                      <span className="font-semibold text-blue-900">JPM</span>
+                      <span className="ml-2 text-red-500">-0.4%</span>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* AI-powered notifications */}
+                <div className="p-4 space-y-4">
+                  <div className="border border-blue-100 rounded-lg p-4 bg-blue-50/50 hover:bg-blue-50 transition-colors">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex items-center">
+                        <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                          <span className="font-bold text-blue-700">JPM</span>
+                        </div>
+                        <Badge variant="secondary" className="bg-orange-100 text-orange-700">Insider Trading</Badge>
+                      </div>
+                      <span className="text-xs text-gray-500">2m ago</span>
+                    </div>
+                    <p className="text-blue-900"><span className="font-semibold">AI Alert:</span> Jamie Dimon has sold 33% of his JPM holdings worth approximately $58M.</p>
+                  </div>
+                  
+                  <div className="border border-blue-100 rounded-lg p-4 bg-blue-50/50 hover:bg-blue-50 transition-colors">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex items-center">
+                        <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                          <span className="font-bold text-blue-700">NVDA</span>
+                        </div>
+                        <Badge variant="secondary" className="bg-green-100 text-green-700">Hedge Fund Activity</Badge>
+                      </div>
+                      <span className="text-xs text-gray-500">15m ago</span>
+                    </div>
+                    <p className="text-blue-900"><span className="font-semibold">AI Alert:</span> Renaissance Technologies increases position by 215%, signaling strong bullish sentiment.</p>
+                  </div>
+                  
+                  <div className="border border-blue-100 rounded-lg p-4 bg-blue-50/50 hover:bg-blue-50 transition-colors">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex items-center">
+                        <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                          <span className="font-bold text-blue-700">TSLA</span>
+                        </div>
+                        <Badge variant="secondary" className="bg-purple-100 text-purple-700">Technical Analysis</Badge>
+                      </div>
+                      <span className="text-xs text-gray-500">32m ago</span>
+                    </div>
+                    <p className="text-blue-900"><span className="font-semibold">AI Alert:</span> RSI indicating oversold conditions with positive divergence forming. Potential reversal ahead.</p>
+                  </div>
+                </div>
+                
+                {/* View more button */}
+                <div className="border-t border-blue-100 p-3 text-center">
+                  <span className="text-blue-600 font-medium">View all insights</span>
+                </div>
+              </div>
+              
+              {/* Background glow effect */}
+              <div className="absolute -z-10 -top-4 -left-4 -right-4 -bottom-4 bg-blue-500/10 rounded-xl blur-xl"></div>
+            </motion.div>
+          </div>
+        </Container>
+      </Section>
+
       {/* Features Section */}
       <Section className="bg-gradient-to-b from-blue-50 to-white py-20">
         <Container>
@@ -284,48 +445,82 @@ export default function Home() {
               Your Edge in the Market
             </h2>
             <p className="mt-4 text-xl text-blue-700/80 max-w-2xl mx-auto">
-              Our AI digs into market data, SEC filings, and more to bring you institutional-grade insights—fast. Click
-              'Learn More' to see how each feature works.
+              Our AI digs into market data, SEC filings, and more to bring you institutional-grade insights—fast.
             </p>
           </motion.div>
 
-          <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-3">
-            <SimpleFeatureCard
-              icon={<ChartLineUp className="h-8 w-8 text-blue-600" />}
-              title="Real-time Analysis"
-              tagline="Track hedge fund moves, insider trades, and market sentiment as it happens."
-              description="Our AI scans SEC filings, verified X posts from market influencers, and live data to flag big moves—like a hedge fund doubling its stake—that could affect your assets."
-            />
-            <SimpleFeatureCard
-              icon={<Bell className="h-8 w-8 text-blue-600" />}
-              title="Personalized Alerts"
-              tagline="Get instant notifications tailored to what you own or watch."
-              description="Set it up your way: 'Alert me if TSLA drops 5%' or 'Notify me of insider sales in VNQ.' You'll know the second something big happens."
-            />
-            <SimpleFeatureCard
-              icon={<Eye className="h-8 w-8 text-blue-600" />}
-              title="Dark Pool Insights"
-              tagline="Spot hidden institutional trades before they hit the market."
-              description="See large trades—like $1M+ in dark pools—that signal where the big money's heading."
-            />
-            <SimpleFeatureCard
-              icon={<Zap className="h-8 w-8 text-blue-600" />}
-              title="Option Flow Analysis"
-              tagline="Catch bullish or bearish trends in options activity."
-              description="We track hefty options trades (e.g., $100K+ premiums) to clue you in on potential price swings."
-            />
-            <SimpleFeatureCard
-              icon={<Shield className="h-8 w-8 text-blue-600" />}
-              title="Lightning Fast"
-              tagline="Alerts hit your inbox or phone within seconds."
-              description="No delays—our system processes events in real-time so you're never behind."
-            />
-            <SimpleFeatureCard
-              icon={<Clock className="h-8 w-8 text-blue-600" />}
-              title="Weekly Summaries"
-              tagline="A Monday recap of what moved your markets."
-              description="Get a digest of last week's key activity—insider trades, hedge fund shifts, and more—tailored to your picks."
-            />
+          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="p-6 rounded-lg">
+              <div className="flex flex-col items-start space-y-4">
+                <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <ChartLineUp className="h-6 w-6 text-blue-600" />
+                </div>
+                <h3 className="text-xl font-bold text-blue-900">Real-time Alerts</h3>
+                <p className="text-blue-700/80">
+                  Stay ahead with instant notifications about market movements, hedge fund activities, and insider trades.
+                </p>
+              </div>
+            </div>
+            
+            <div className="p-6 rounded-lg">
+              <div className="flex flex-col items-start space-y-4">
+                <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <Bell className="h-6 w-6 text-purple-600" />
+                </div>
+                <h3 className="text-xl font-bold text-blue-900">AI Analysis</h3>
+                <p className="text-blue-700/80">
+                  Our AI models analyze market patterns, hedge fund moves, and insider trading to identify potential opportunities.
+                </p>
+              </div>
+            </div>
+            
+            <div className="p-6 rounded-lg">
+              <div className="flex flex-col items-start space-y-4">
+                <div className="h-12 w-12 bg-indigo-100 rounded-lg flex items-center justify-center">
+                  <Eye className="h-6 w-6 text-indigo-600" />
+                </div>
+                <h3 className="text-xl font-bold text-blue-900">Hedge Fund Tracking</h3>
+                <p className="text-blue-700/80">
+                  Track the moves of top hedge funds and see where the smart money is flowing in near real-time.
+                </p>
+              </div>
+            </div>
+            
+            <div className="p-6 rounded-lg">
+              <div className="flex flex-col items-start space-y-4">
+                <div className="h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center">
+                  <Zap className="h-6 w-6 text-red-600" />
+                </div>
+                <h3 className="text-xl font-bold text-blue-900">Insider Trading Alerts</h3>
+                <p className="text-blue-700/80">
+                  Be the first to know when company executives buy or sell shares, often a strong signal of future performance.
+                </p>
+              </div>
+            </div>
+            
+            <div className="p-6 rounded-lg">
+              <div className="flex flex-col items-start space-y-4">
+                <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
+                  <Shield className="h-6 w-6 text-green-600" />
+                </div>
+                <h3 className="text-xl font-bold text-blue-900">Options Flow</h3>
+                <p className="text-blue-700/80">
+                  Follow unusual options activity that often precedes major price movements in the market.
+                </p>
+              </div>
+            </div>
+            
+            <div className="p-6 rounded-lg">
+              <div className="flex flex-col items-start space-y-4">
+                <div className="h-12 w-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                  <Clock className="h-6 w-6 text-yellow-600" />
+                </div>
+                <h3 className="text-xl font-bold text-blue-900">Personalized Watchlist</h3>
+                <p className="text-blue-700/80">
+                  Create a custom watchlist and receive targeted insights and alerts specifically for the assets you care about.
+                </p>
+              </div>
+            </div>
           </div>
         </Container>
       </Section>
@@ -754,6 +949,13 @@ export default function Home() {
           <FAQ />
         </Container>
       </Section>
+      
+      {/* Interest Popup */}
+      <InterestPopup 
+        email={email}
+        isOpen={showInterestsPopup}
+        onCloseAction={() => setShowInterestsPopup(false)}
+      />
     </div>
   )
 } 

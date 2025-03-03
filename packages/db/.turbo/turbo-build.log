@@ -1,7 +1,7 @@
 
 
 > @repo/db@0.1.0 build /Users/blakesingleton/Desktop/AIHedgeFund/packages/db
-> rm -rf dist && npm run build:ts && mkdir -p dist/schema && cp package.json dist/ && cp src/schema/*.ts dist/schema/ && cp src/types.ts dist/
+> rm -rf dist && find src -name '*.d.ts' -delete && npm run build:ts && mkdir -p dist/schema && cp package.json dist/ && cp src/schema/*.ts dist/schema/ && cp src/types.ts dist/
 
 
 > @repo/db@0.1.0 build:ts
