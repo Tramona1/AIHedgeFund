@@ -24,7 +24,6 @@ class PriceAlertsService {
    */
   async checkPriceChanges(threshold: number = 5) {
     serviceLogger.info(`Checking for price changes above ${threshold}%`);
-    // Implementation would go here
     return { processed: 0, notified: 0 };
   }
 
@@ -34,7 +33,6 @@ class PriceAlertsService {
    */
   async checkPriceThresholds() {
     serviceLogger.info("Checking price threshold alerts");
-    // Implementation would go here
     return { processed: 0, notified: 0 };
   }
 
@@ -45,7 +43,6 @@ class PriceAlertsService {
    */
   async checkVolumeSurges(multiple: number = 2) {
     serviceLogger.info(`Checking for volume surges (${multiple}x average)`);
-    // Implementation would go here
     return { processed: 0, notified: 0 };
   }
 
@@ -55,7 +52,6 @@ class PriceAlertsService {
    */
   async checkRSIAlerts() {
     serviceLogger.info("Checking RSI alerts");
-    // Implementation would go here
     return { processed: 0, notified: 0 };
   }
 
@@ -73,26 +69,10 @@ class PriceAlertsService {
       rsiAlerts: await this.checkRSIAlerts()
     };
     
-    const totalProcessed = 
-      results.priceChanges.processed + 
-      results.priceThresholds.processed + 
-      results.volumeSurges.processed + 
-      results.rsiAlerts.processed;
-      
-    const totalNotified = 
-      results.priceChanges.notified + 
-      results.priceThresholds.notified + 
-      results.volumeSurges.notified + 
-      results.rsiAlerts.notified;
-    
-    serviceLogger.info(`Completed all price alert checks. Processed: ${totalProcessed}, Notified: ${totalNotified}`);
-    
     return {
       ...results,
-      totalProcessed,
-      totalNotified,
-      alertsProcessed: totalProcessed,
-      triggeredAlerts: totalNotified
+      alertsProcessed: Object.values(results).reduce((sum, r) => sum + r.processed, 0),
+      triggeredAlerts: Object.values(results).reduce((sum, r) => sum + r.notified, 0)
     };
   }
 }
